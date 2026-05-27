@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orbitali dell'Idrogeno — Simulatore 3D</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@300;400;600;700&display=swap');
+
+  :root {
+    --bg: #000000;
+    --panel: #080c10;
+    --panel-border: #0d1a26;
+    --accent: #00d4ff;
+    --accent2: #ff6b35;
+    --accent3: #7c3aed;
+    --text: #c8d8e8;
+    --text-dim: #4a6070;
+    --text-bright: #ffffff;
+    --slider-track: #0d2030;
+    --slider-thumb: #00d4ff;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ── SIDEBAR ── */
+  #sidebar {
+    width: 320px;
+    min-width: 320px;
+    background: var(--panel);
+    border-right: 1px solid var(--panel-border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+    z-index: 10;
+  }
+
+  #sidebar::-webkit-scrollbar { width: 4px; }
+  #sidebar::-webkit-scrollbar-track { background: transparent; }
+  #sidebar::-webkit-scrollbar-thumb { background: var(--panel-border); border-radius: 2px; }
+
+  .sidebar-header {
+    padding: 24px 20px 16px;
+    border-bottom: 1px solid var(--panel-border);
+  }
+
+  .sidebar-header h1 {
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    letter-spacing: 0.15em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .sidebar-header p {
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.5;
+    font-family: 'Space Mono', monospace;
+  }
+
+  /* ── ORBITAL SELECTOR ── */
+  .section {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--panel-border);
+  }
+
+  .section-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  .orbital-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+
+  .orbital-btn {
+    background: transparent;
+    border: 1px solid var(--panel-border);
+    color: var(--text-dim);
+    padding: 8px 4px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.15s;
+    text-align: center;
+  }
+
+  .orbital-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(0,212,255,0.05); }
+  .orbital-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(0,212,255,0.12); }
+
+  .orbital-info-box {
+    background: rgba(0,212,255,0.04);
+    border: 1px solid rgba(0,212,255,0.15);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-top: 8px;
+  }
+
+  .orbital-info-box .orb-name {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-bright);
+    margin-bottom: 4px;
+  }
+
+  .orbital-info-box .orb-desc {
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.6;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .quantum-nums {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+
+  .qnum {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--accent2);
+    background: rgba(255,107,53,0.1);
+    border: 1px solid rgba(255,107,53,0.2);
+    border-radius: 3px;
+    padding: 2px 6px;
+  }
+
+  /* ── SLIDERS ── */
+  .param-row {
+    margin-bottom: 14px;
+  }
+
+  .param-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 6px;
+  }
+
+  .param-name {
+    font-size: 12px;
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  .param-value {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+  }
+
+  .param-hint {
+    font-size: 10px;
+    color: var(--text-dim);
+    line-height: 1.5;
+    margin-bottom: 6px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  input[type=range] {
+    width: 100%;
+    height: 3px;
+    appearance: none;
+    background: var(--slider-track);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  input[type=range]::-webkit-slider-thumb {
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--slider-thumb);
+    box-shadow: 0 0 8px var(--accent);
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+
+  input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.3); }
+
+  /* color picker row */
+  .color-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .color-swatch {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.15s;
+    position: relative;
+  }
+
+  .color-swatch.active {
+    border-color: white;
+    transform: scale(1.15);
+  }
+
+  /* toggle */
+  .toggle-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .toggle-label { font-size: 12px; color: var(--text); font-weight: 600; }
+
+  .toggle {
+    width: 36px;
+    height: 20px;
+    background: var(--panel-border);
+    border-radius: 10px;
+    cursor: pointer;
+    position: relative;
+    transition: background 0.2s;
+  }
+
+  .toggle.on { background: var(--accent); }
+
+  .toggle::after {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: white;
+    top: 3px;
+    left: 3px;
+    transition: transform 0.2s;
+  }
+
+  .toggle.on::after { transform: translateX(16px); }
+
+  /* action buttons */
+  .action-btn {
+    width: 100%;
+    padding: 10px;
+    background: transparent;
+    border: 1px solid var(--panel-border);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 4px;
+    letter-spacing: 0.05em;
+    transition: all 0.15s;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+
+  .action-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(0,212,255,0.05); }
+  .action-btn.primary { border-color: var(--accent); color: var(--accent); background: rgba(0,212,255,0.08); }
+  .action-btn.primary:hover { background: rgba(0,212,255,0.18); }
+
+  /* ── CANVAS AREA ── */
+  #canvasWrap {
+    flex: 1;
+    position: relative;
+    background: #000;
+    overflow: hidden;
+  }
+
+  #glCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* HUD overlay */
+  #hud {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    text-align: right;
+    pointer-events: none;
+  }
+
+  #hud .hud-line { margin-bottom: 3px; }
+  #hud .hud-bright { color: var(--accent); }
+
+  /* loading */
+  #loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+    z-index: 5;
+    transition: opacity 0.4s;
+  }
+
+  #loading.hidden { opacity: 0; pointer-events: none; }
+
+  .loader-ring {
+    width: 48px;
+    height: 48px;
+    border: 2px solid var(--panel-border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-bottom: 12px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loader-text {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.15em;
+  }
+
+  /* drag hint */
+  #dragHint {
+    position: absolute;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    pointer-events: none;
+    opacity: 1;
+    transition: opacity 1s;
+  }
+
+  #dragHint.hidden { opacity: 0; }
+</style>
+</head>
+<body>
+
+<!-- ── SIDEBAR ─────────────────────────────────────── -->
+<div id="sidebar">
+
+  <div class="sidebar-header">
+    <h1>H · Orbitals</h1>
+    <p>Simulatore quantistico 3D<br>Atomo di Idrogeno</p>
+  </div>
+
+  <!-- ORBITAL SELECT -->
+  <div class="section">
+    <div class="section-label">Tipo di Orbitale</div>
+    <div class="orbital-grid" id="orbGrid"></div>
+    <div class="orbital-info-box" id="orbInfo"></div>
+  </div>
+
+  <!-- VISUAL PARAMS -->
+  <div class="section">
+    <div class="section-label">Visualizzazione</div>
+
+    <div class="param-row">
+      <div class="param-header">
+        <span class="param-name">Numero di Punti</span>
+        <span class="param-value" id="val-points">80k</span>
+      </div>
+      <div class="param-hint">Densità della nuvola probabilistica. Più punti = maggior fedeltà ma più lento da calcolare.</div>
+      <input type="range" id="sl-points" min="10000" max="200000" step="5000" value="80000">
+    </div>
+
+    <div class="param-row">
+      <div class="param-header">
+        <span class="param-name">Magnitudine (scala)</span>
+        <span class="param-value" id="val-scale">1.0×</span>
+      </div>
+      <div class="param-hint">Scala fisica della nuvola. Non altera la fisica, solo lo zoom sulla distribuzione.</div>
+      <input type="range" id="sl-scale" min="0.2" max="5.0" step="0.1" value="1.0">
+    </div>
+
+    <div class="param-row">
+      <div class="param-header">
+        <span class="param-name">Opacità Punti</span>
+        <span class="param-value" id="val-alpha">0.60</span>
+      </div>
+      <div class="param-hint">Trasparenza di ogni punto. Valori bassi rivelano la struttura interna.</div>
+      <input type="range" id="sl-alpha" min="0.05" max="1.0" step="0.01" value="0.60">
+    </div>
+
+    <div class="param-row">
+      <div class="param-header">
+        <span class="param-name">Dimensione Punti</span>
+        <span class="param-value" id="val-size">2.0</span>
+      </div>
+      <div class="param-hint">Raggio di ogni particella nella nuvola di punti.</div>
+      <input type="range" id="sl-size" min="0.5" max="6.0" step="0.1" value="2.0">
+    </div>
+
+    <div class="param-row">
+      <div class="param-header">
+        <span class="param-name">Colore per Distanza</span>
+        <span class="param-value" id="val-colormap">Plasma</span>
+      </div>
+      <div class="param-hint">Mappa cromatica applicata in base alla distanza dal nucleo (r). Rivela i nodi radiali.</div>
+      <input type="range" id="sl-colormap" min="0" max="4" step="1" value="0">
+    </div>
+
+    <div class="param-row">
+      <div class="param-header">
+        <span class="param-name">Soglia Probabilità</span>
+        <span class="param-value" id="val-thresh">0%</span>
+      </div>
+      <div class="param-hint">Scarta punti con |ψ|² inferiore a questa soglia. Elimina la nebbia di fondo e isola le regioni dense.</div>
+      <input type="range" id="sl-thresh" min="0" max="0.95" step="0.01" value="0">
+    </div>
+  </div>
+
+  <!-- CAMERA -->
+  <div class="section">
+    <div class="section-label">Camera & Rotazione</div>
+
+    <div class="param-row">
+      <div class="param-header">
+        <span class="param-name">Velocità Auto-Rotazione</span>
+        <span class="param-value" id="val-rot">0.3</span>
+      </div>
+      <div class="param-hint">Velocità di rotazione automatica. Trascina il mouse per rotazione manuale.</div>
+      <input type="range" id="sl-rot" min="0" max="2.0" step="0.05" value="0.3">
+    </div>
+
+    <div class="param-row">
+      <div class="param-header">
+        <span class="param-name">Campo Visivo (FOV)</span>
+        <span class="param-value" id="val-fov">60°</span>
+      </div>
+      <div class="param-hint">Angolo di prospettiva della camera. FOV ampio dà effetto fisheye, FOV stretto effetto teleobiettivo.</div>
+      <input type="range" id="sl-fov" min="20" max="120" step="1" value="60">
+    </div>
+
+    <div class="toggle-row">
+      <span class="toggle-label">Mostra Asse Nucleare</span>
+      <div class="toggle on" id="tog-axis"></div>
+    </div>
+
+    <div class="toggle-row">
+      <span class="toggle-label">Colora per Fase ψ</span>
+      <div class="toggle" id="tog-phase"></div>
+    </div>
+  </div>
+
+  <!-- ACTIONS -->
+  <div class="section">
+    <div class="section-label">Azioni</div>
+    <button class="action-btn primary" id="btn-regen">↺ Ricalcola Nuvola</button>
+    <button class="action-btn" id="btn-reset">Reset Parametri</button>
+  </div>
+
+  <div class="section" style="border-bottom:none; padding-bottom:24px;">
+    <div class="section-label">Note Fisiche</div>
+    <p style="font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);line-height:1.7;">
+      La nuvola visualizza |ψ<sub>nlm</sub>(r,θ,φ)|² campionata con metodo Monte Carlo rejection. Ogni punto rappresenta una posizione probabile dell'elettrone. I numeri quantici n, l, m definono forma e orientazione dell'orbitale.
+    </p>
+  </div>
+
+</div>
+
+<!-- ── CANVAS ─────────────────────────────────────── -->
+<div id="canvasWrap">
+  <canvas id="glCanvas"></canvas>
+
+  <div id="hud">
+    <div class="hud-line">Orbitale: <span class="hud-bright" id="hud-orb">1s</span></div>
+    <div class="hud-line">Punti: <span class="hud-bright" id="hud-pts">80 000</span></div>
+    <div class="hud-line">n=<span class="hud-bright" id="hud-n">1</span>  l=<span class="hud-bright" id="hud-l">0</span>  m=<span class="hud-bright" id="hud-m">0</span></div>
+  </div>
+
+  <div id="dragHint">Trascina per ruotare · Scroll per zoom</div>
+
+  <div id="loading">
+    <div class="loader-ring"></div>
+    <div class="loader-text">CALCOLO IN CORSO…</div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────
+//  ORBITAL DEFINITIONS
+// ─────────────────────────────────────────────────────────────────
+const ORBITALS = [
+  { name:'1s',  n:1,l:0,m: 0, desc:'L\'orbitale 1s è sferico, il più basso in energia. L\'elettrone ha probabilità massima al nucleo (raggio di Bohr ≈ 0.53 Å). Nessun nodo angolare.',       },
+  { name:'2s',  n:2,l:0,m: 0, desc:'Come l\'1s ma con un nodo radiale sferico interno. Due regioni di densità concentriche. Energia superiore all\'1s.',                                       },
+  { name:'2p₀', n:2,l:1,m: 0, desc:'Due lobi lungo l\'asse z, separati da un piano nodale (xy). Il numero quantico m=0 orienta i lobi verticalmente.',                                        },
+  { name:'2p₊', n:2,l:1,m: 1, desc:'Orbitale 2p con m=+1. La parte reale forma una ciambella nel piano xy con struttura angolare. Combina con 2p₋ per dare 2px e 2py.',                      },
+  { name:'2p₋', n:2,l:1,m:-1, desc:'Orbitale 2p con m=−1, complesso coniugato del 2p₊. La densità di probabilità è identica al 2p₊.',                                                       },
+  { name:'3s',  n:3,l:0,m: 0, desc:'Tre zone radiali concentriche separate da 2 nodi sferici. L\'orbitale si espande molto rispetto all\'1s e 2s.',                                          },
+  { name:'3p₀', n:3,l:1,m: 0, desc:'Due lobi lungo z con un nodo radiale aggiuntivo rispetto al 2p₀. La struttura mostra due serie di lobi.',                                                 },
+  { name:'3d₀', n:3,l:2,m: 0, desc:'L\'orbitale dz² ha due lobi principali lungo z e un toro equatoriale. Due nodi angolari conici.',                                                        },
+  { name:'3d₊', n:3,l:2,m: 1, desc:'Quattro lobi disposti a 45° dal piano xz. Parte reale dell\'orbitale d con m=±1.',                                                                       },
+  { name:'3d₋', n:3,l:2,m:-1, desc:'Come il 3d₊ con orientazione diversa. M=−1.',                                                                                                            },
+  { name:'3d₊₂',n:3,l:2,m: 2, desc:'L\'orbitale dx²−y² ha quattro lobi nel piano xy. Due nodi angolari piani (xz e yz).',                                                                   },
+  { name:'3d₋₂',n:3,l:2,m:-2, desc:'L\'orbitale dxy ha quattro lobi ruotati di 45° rispetto al dx²−y². M=−2.',                                                                              },
+  { name:'4f₀', n:4,l:3,m: 0, desc:'Orbitale f con simmetria assiale. Struttura complessa con molti lobi lungo z. Tre nodi angolari.',                                                       },
+  { name:'4f₊', n:4,l:3,m: 1, desc:'Primo orbitale f con m=1. Distribuzione a petali attorno all\'asse z.',                                                                                  },
+  { name:'4f₊₂',n:4,l:3,m: 2, desc:'Orbitale f con m=2. Struttura a petali nel piano.',                                                                                                      },
+  { name:'4f₊₃',n:4,l:3,m: 3, desc:'Orbitale f con m=3. La più alta simmetria assiale tra gli f con struttura a ciambella.',                                                                 },
+];
+
+// ─────────────────────────────────────────────────────────────────
+//  MATH: factorial, assoc Legendre, spherical harmonics, radial
+// ─────────────────────────────────────────────────────────────────
+function factorial(n) {
+  if(n<=1) return 1;
+  let r=1; for(let i=2;i<=n;i++) r*=i; return r;
+}
+
+function assocLaguerre(n, alpha, x) {
+  if(n===0) return 1;
+  if(n===1) return 1+alpha-x;
+  let L0=1, L1=1+alpha-x, Lk;
+  for(let k=2;k<=n;k++){
+    Lk=((2*k-1+alpha-x)*L1 - (k-1+alpha)*L0)/k;
+    L0=L1; L1=Lk;
+  }
+  return L1;
+}
+
+function assocLegendre(l, m, x) {
+  const absm=Math.abs(m);
+  const sin=Math.sqrt(1-x*x);
+  let pmm=1;
+  for(let i=1;i<=absm;i++) pmm*=-( 2*i-1)*sin;
+  if(l===absm) return pmm;
+  let pm1=x*(2*absm+1)*pmm, pl;
+  if(l===absm+1) return pm1;
+  for(let ll=absm+2;ll<=l;ll++){
+    pl=((2*ll-1)*x*pm1-(ll+absm-1)*pmm)/(ll-absm);
+    pmm=pm1; pm1=pl;
+  }
+  return pm1;
+}
+
+// Radial wavefunction R_{nl}(r) with a0=1
+function radialWF(n, l, r) {
+  const rho = 2*r/n;
+  const norm = Math.sqrt(
+    Math.pow(2/n,3) * factorial(n-l-1) / (2*n*Math.pow(factorial(n+l),3))
+  );
+  const lag = assocLaguerre(n-l-1, 2*l+1, rho);
+  return norm * Math.exp(-rho/2) * Math.pow(rho, l) * lag;
+}
+
+// |ψ|² at (r, cosTheta, phi) — returns probability density
+function psi2(n, l, m, r, cosTheta, phi) {
+  const R = radialWF(n, l, r);
+  const P = assocLegendre(l, Math.abs(m), cosTheta);
+  // Normalization of Y_l^m
+  const normY = Math.sqrt(
+    (2*l+1)/(4*Math.PI) * factorial(l-Math.abs(m))/factorial(l+Math.abs(m))
+  );
+  let angular;
+  if(m===0) angular = normY*P;
+  else if(m>0) angular = normY*P * Math.sqrt(2)*Math.cos(m*phi);
+  else         angular = normY*P * Math.sqrt(2)*Math.sin(Math.abs(m)*phi);
+  return R*R * angular*angular;
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  STATE
+// ─────────────────────────────────────────────────────────────────
+let state = {
+  orbIdx: 0,
+  nPoints: 80000,
+  scale: 1.0,
+  alpha: 0.60,
+  size: 2.0,
+  colormapIdx: 0,
+  thresh: 0.0,
+  rotSpeed: 0.3,
+  fov: 60,
+  showAxis: true,
+  colorByPhase: false,
+};
+
+const COLORMAPS = ['Plasma','Viridis','Inferno','Cyan→Magenta','Arcobaleno'];
+
+// ─────────────────────────────────────────────────────────────────
+//  BUILD SIDEBAR
+// ─────────────────────────────────────────────────────────────────
+function buildSidebar() {
+  const grid = document.getElementById('orbGrid');
+  ORBITALS.forEach((o,i) => {
+    const btn = document.createElement('button');
+    btn.className = 'orbital-btn' + (i===0?' active':'');
+    btn.textContent = o.name;
+    btn.onclick = ()=>selectOrbital(i);
+    btn.id = 'obtn'+i;
+    grid.appendChild(btn);
+  });
+  updateOrbInfo();
+}
+
+function selectOrbital(i) {
+  state.orbIdx = i;
+  document.querySelectorAll('.orbital-btn').forEach((b,j)=>b.classList.toggle('active',j===i));
+  updateOrbInfo();
+  scheduleRegen();
+}
+
+function updateOrbInfo() {
+  const o = ORBITALS[state.orbIdx];
+  document.getElementById('orbInfo').innerHTML = `
+    <div class="orb-name">${o.name}</div>
+    <div class="orb-desc">${o.desc}</div>
+    <div class="quantum-nums">
+      <span class="qnum">n = ${o.n}</span>
+      <span class="qnum">l = ${o.l}</span>
+      <span class="qnum">m = ${o.m}</span>
+    </div>`;
+  document.getElementById('hud-orb').textContent = o.name;
+  document.getElementById('hud-n').textContent = o.n;
+  document.getElementById('hud-l').textContent = o.l;
+  document.getElementById('hud-m').textContent = o.m;
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  SLIDER WIRING
+// ─────────────────────────────────────────────────────────────────
+function wire(id, valId, fmt, onChange) {
+  const sl = document.getElementById(id);
+  const vl = document.getElementById(valId);
+  sl.addEventListener('input', () => {
+    vl.textContent = fmt(parseFloat(sl.value));
+    onChange(parseFloat(sl.value));
+  });
+}
+
+function initSliders() {
+  wire('sl-points','val-points', v=>(v/1000).toFixed(0)+'k', v=>{ state.nPoints=Math.round(v); scheduleRegen(); });
+  wire('sl-scale', 'val-scale',  v=>v.toFixed(1)+'×',        v=>{ state.scale=v; scheduleRegen(); });
+  wire('sl-alpha', 'val-alpha',  v=>v.toFixed(2),             v=>{ state.alpha=v; updateGLAlpha(); });
+  wire('sl-size',  'val-size',   v=>v.toFixed(1),             v=>{ state.size=v; updateGLSize(); });
+  wire('sl-colormap','val-colormap', v=>COLORMAPS[Math.round(v)], v=>{ state.colormapIdx=Math.round(v); scheduleRegen(); });
+  wire('sl-thresh','val-thresh', v=>(v*100).toFixed(0)+'%',   v=>{ state.thresh=v; scheduleRegen(); });
+  wire('sl-rot',   'val-rot',    v=>v.toFixed(2),             v=>{ state.rotSpeed=v; });
+  wire('sl-fov',   'val-fov',    v=>v.toFixed(0)+'°',         v=>{ state.fov=v; updateProjection(); });
+
+  document.getElementById('tog-axis').onclick  = function(){ this.classList.toggle('on'); state.showAxis=this.classList.contains('on'); };
+  document.getElementById('tog-phase').onclick = function(){ this.classList.toggle('on'); state.colorByPhase=this.classList.contains('on'); scheduleRegen(); };
+
+  document.getElementById('btn-regen').onclick = ()=>generateCloud();
+  document.getElementById('btn-reset').onclick = ()=>resetParams();
+}
+
+function resetParams() {
+  state = { ...state, nPoints:80000, scale:1.0, alpha:0.60, size:2.0, colormapIdx:0, thresh:0.0, rotSpeed:0.3, fov:60 };
+  document.getElementById('sl-points').value=80000; document.getElementById('val-points').textContent='80k';
+  document.getElementById('sl-scale').value=1.0;    document.getElementById('val-scale').textContent='1.0×';
+  document.getElementById('sl-alpha').value=0.60;   document.getElementById('val-alpha').textContent='0.60';
+  document.getElementById('sl-size').value=2.0;     document.getElementById('val-size').textContent='2.0';
+  document.getElementById('sl-colormap').value=0;   document.getElementById('val-colormap').textContent='Plasma';
+  document.getElementById('sl-thresh').value=0;     document.getElementById('val-thresh').textContent='0%';
+  document.getElementById('sl-rot').value=0.3;      document.getElementById('val-rot').textContent='0.30';
+  document.getElementById('sl-fov').value=60;       document.getElementById('val-fov').textContent='60°';
+  scheduleRegen();
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  WEBGL SETUP
+// ─────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('glCanvas');
+const gl = canvas.getContext('webgl', { antialias:true, alpha:false });
+
+const VS = `
+  attribute vec3 aPos;
+  attribute vec3 aColor;
+  uniform mat4 uMVP;
+  uniform float uSize;
+  varying vec3 vColor;
+  void main(){
+    gl_Position = uMVP * vec4(aPos,1.0);
+    gl_PointSize = uSize;
+    vColor = aColor;
+  }`;
+
+const FS = `
+  precision mediump float;
+  varying vec3 vColor;
+  uniform float uAlpha;
+  void main(){
+    vec2 c = gl_PointCoord - 0.5;
+    float r = dot(c,c)*4.0;
+    if(r>1.0) discard;
+    float a = (1.0-r)*uAlpha;
+    gl_FragColor = vec4(vColor, a);
+  }`;
+
+function compileShader(type, src) {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src);
+  gl.compileShader(s);
+  return s;
+}
+
+const prog = gl.createProgram();
+gl.attachShader(prog, compileShader(gl.VERTEX_SHADER,   VS));
+gl.attachShader(prog, compileShader(gl.FRAGMENT_SHADER, FS));
+gl.linkProgram(prog);
+gl.useProgram(prog);
+
+const aPos   = gl.getAttribLocation(prog,'aPos');
+const aColor = gl.getAttribLocation(prog,'aColor');
+const uMVP   = gl.getUniformLocation(prog,'uMVP');
+const uSize  = gl.getUniformLocation(prog,'uSize');
+const uAlpha = gl.getUniformLocation(prog,'uAlpha');
+
+const posBuf   = gl.createBuffer();
+const colBuf   = gl.createBuffer();
+let   numPts   = 0;
+
+// Axis line buffers
+const axisBuf  = gl.createBuffer();
+const axisColBuf = gl.createBuffer();
+
+const VS2 = `
+  attribute vec3 aPos;
+  attribute vec3 aColor;
+  uniform mat4 uMVP;
+  varying vec3 vColor;
+  void main(){ gl_Position=uMVP*vec4(aPos,1.0); vColor=aColor; }`;
+const FS2 = `
+  precision mediump float;
+  varying vec3 vColor;
+  void main(){ gl_FragColor=vec4(vColor,0.5); }`;
+
+const prog2 = gl.createProgram();
+gl.attachShader(prog2, compileShader(gl.VERTEX_SHADER,   VS2));
+gl.attachShader(prog2, compileShader(gl.FRAGMENT_SHADER, FS2));
+gl.linkProgram(prog2);
+const aPos2  = gl.getAttribLocation(prog2,'aPos');
+const aCol2  = gl.getAttribLocation(prog2,'aColor');
+const uMVP2  = gl.getUniformLocation(prog2,'uMVP');
+
+// Build axis geometry
+(function(){
+  const L=15;
+  const pos=new Float32Array([
+    -L,0,0, L,0,0,
+     0,-L,0, 0,L,0,
+     0,0,-L, 0,0,L,
+  ]);
+  const col=new Float32Array([
+    1,0.2,0.2, 1,0.2,0.2,
+    0.2,1,0.2, 0.2,1,0.2,
+    0.2,0.4,1, 0.2,0.4,1,
+  ]);
+  gl.bindBuffer(gl.ARRAY_BUFFER, axisBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, pos, gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER, axisColBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, col, gl.STATIC_DRAW);
+})();
+
+// ─────────────────────────────────────────────────────────────────
+//  COLORMAPS
+// ─────────────────────────────────────────────────────────────────
+function applyColormap(t, idx) {
+  t = Math.max(0, Math.min(1, t));
+  switch(idx) {
+    case 0: { // Plasma
+      const r = 0.05 + 0.85*t + 0.1*t*t;
+      const g = 0.05*t + 0.35*t*t;
+      const b = 0.55 - 0.5*t;
+      return [r,g,b];
+    }
+    case 1: { // Viridis
+      const r = 0.26*t + 0.14*t*t*t;
+      const g = 0.55 + 0.3*Math.sin(3.14*t);
+      const b = 0.55 - 0.5*t;
+      return [r,g,b];
+    }
+    case 2: { // Inferno
+      const r = t>0.5 ? 1 : 2*t;
+      const g = t>0.5 ? 2*(t-0.5) : 0;
+      const b = t<0.5 ? 0.5-t : 0;
+      return [r,g,b];
+    }
+    case 3: { // Cyan→Magenta
+      return [t, 1-t, 1];
+    }
+    case 4: { // Rainbow
+      const h = (1-t)*240;
+      return hslToRgb(h/360, 1, 0.55);
+    }
+  }
+}
+
+function hslToRgb(h, s, l) {
+  const c=(1-Math.abs(2*l-1))*s, x=c*(1-Math.abs((h*6)%2-1)), m=l-c/2;
+  const i=Math.floor(h*6);
+  const tab=[[c,x,0],[x,c,0],[0,c,x],[0,x,c],[x,0,c],[c,0,x]];
+  const [r,g,b]=tab[i%6];
+  return [r+m,g+m,b+m];
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  MONTE CARLO CLOUD GENERATION (in worker-like chunks)
+// ─────────────────────────────────────────────────────────────────
+let regenTimer = null;
+function scheduleRegen() {
+  clearTimeout(regenTimer);
+  regenTimer = setTimeout(generateCloud, 250);
+}
+
+function generateCloud() {
+  document.getElementById('loading').classList.remove('hidden');
+  document.getElementById('hud-pts').textContent = state.nPoints.toLocaleString('it');
+  setTimeout(()=>_doGenerate(), 30);
+}
+
+function _doGenerate() {
+  const o = ORBITALS[state.orbIdx];
+  const {n,l,m} = o;
+  const S = state.scale;
+
+  // Estimate max probability for rejection sampling
+  // We sample on a grid first to find peak
+  let maxP = 0;
+  const GRID = 50;
+  const rMax = (n*n + n) * 3.5 * S;
+  for(let i=0;i<GRID;i++)
+  for(let j=0;j<GRID;j++) {
+    const r = rMax*(i+1)/GRID;
+    const cosT = -1 + 2*j/GRID;
+    const phi = Math.PI*i/GRID;
+    const p = psi2(n,l,m,r/S,cosT,phi) * r*r;
+    if(p>maxP) maxP=p;
+  }
+  maxP *= 1.5;
+
+  const target = state.nPoints;
+  const positions = new Float32Array(target*3);
+  const colors    = new Float32Array(target*3);
+
+  let accepted = 0;
+  let attempts = 0;
+  const maxAttempts = target * 200;
+
+  // Collect raw probabilities for threshold
+  const probs = [];
+
+  while(accepted < target && attempts < maxAttempts) {
+    attempts++;
+    const r     = rMax * Math.cbrt(Math.random());
+    const cosT  = -1 + 2*Math.random();
+    const sinT  = Math.sqrt(1-cosT*cosT);
+    const phi   = 2*Math.PI*Math.random();
+    const p     = psi2(n,l,m,r/S,cosT,phi) * (r/S)*(r/S);
+    const u     = Math.random() * maxP;
+    if(u < p) {
+      probs.push({idx:accepted, p, r});
+      positions[accepted*3  ] = r*sinT*Math.cos(phi);
+      positions[accepted*3+1] = r*cosT;
+      positions[accepted*3+2] = r*sinT*Math.sin(phi);
+      accepted++;
+    }
+  }
+
+  numPts = accepted;
+
+  // Compute r stats for coloring
+  let rMin=Infinity, rMaxV=0;
+  for(let i=0;i<accepted;i++){
+    const r=probs[i].r;
+    if(r<rMin)rMin=r; if(r>rMaxV)rMaxV=r;
+  }
+
+  // Compute probability stats for threshold
+  let pMax=0;
+  for(let i=0;i<accepted;i++) if(probs[i].p>pMax) pMax=probs[i].p;
+
+  // Color & threshold
+  let kept=0;
+  const posKeep=new Float32Array(accepted*3);
+  const colKeep=new Float32Array(accepted*3);
+
+  for(let i=0;i<accepted;i++){
+    const pNorm = probs[i].p/pMax;
+    if(pNorm < state.thresh) continue;
+    const rNorm = (probs[i].r - rMin)/(rMaxV-rMin+1e-10);
+    const [cr,cg,cb] = applyColormap(rNorm, state.colormapIdx);
+    posKeep[kept*3  ]=positions[i*3  ];
+    posKeep[kept*3+1]=positions[i*3+1];
+    posKeep[kept*3+2]=positions[i*3+2];
+    colKeep[kept*3  ]=cr;
+    colKeep[kept*3+1]=cg;
+    colKeep[kept*3+2]=cb;
+    kept++;
+  }
+
+  numPts = kept;
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, posBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, posKeep.subarray(0,kept*3), gl.DYNAMIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER, colBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, colKeep.subarray(0,kept*3), gl.DYNAMIC_DRAW);
+
+  document.getElementById('loading').classList.add('hidden');
+  document.getElementById('hud-pts').textContent = kept.toLocaleString('it');
+}
+
+function updateGLAlpha() { /* just read in render */ }
+function updateGLSize()  { /* just read in render */ }
+function updateProjection() { /* just read in render */ }
+
+// ─────────────────────────────────────────────────────────────────
+//  MATRIX MATH
+// ─────────────────────────────────────────────────────────────────
+function mat4() { return new Float32Array(16); }
+function identity(m) {
+  m[0]=1;m[1]=0;m[2]=0;m[3]=0;
+  m[4]=0;m[5]=1;m[6]=0;m[7]=0;
+  m[8]=0;m[9]=0;m[10]=1;m[11]=0;
+  m[12]=0;m[13]=0;m[14]=0;m[15]=1;
+  return m;
+}
+function mulMat(a,b){
+  const c=mat4();
+  for(let r=0;r<4;r++) for(let col=0;col<4;col++){
+    let s=0; for(let k=0;k<4;k++) s+=a[r+k*4]*b[k+col*4];
+    c[r+col*4]=s;
+  }
+  return c;
+}
+function perspective(fov,asp,n,f){
+  const m=mat4(), t=Math.tan(fov*Math.PI/360);
+  m[0]=1/(asp*t); m[5]=1/t;
+  m[10]=-(f+n)/(f-n); m[11]=-1;
+  m[14]=-2*f*n/(f-n); m[15]=0;
+  return m;
+}
+function translate(x,y,z){
+  const m=identity(mat4());
+  m[12]=x; m[13]=y; m[14]=z;
+  return m;
+}
+function rotX(a){
+  const m=identity(mat4()),c=Math.cos(a),s=Math.sin(a);
+  m[5]=c; m[6]=s; m[9]=-s; m[10]=c; return m;
+}
+function rotY(a){
+  const m=identity(mat4()),c=Math.cos(a),s=Math.sin(a);
+  m[0]=c; m[2]=-s; m[8]=s; m[10]=c; return m;
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  CAMERA / MOUSE
+// ─────────────────────────────────────────────────────────────────
+let camTheta=0.4, camPhi=0.5, camDist=40;
+let dragX=0, dragY=0, isDrag=false;
+let hintHidden=false;
+
+canvas.addEventListener('mousedown', e=>{ isDrag=true; dragX=e.clientX; dragY=e.clientY; });
+canvas.addEventListener('mousemove', e=>{
+  if(!isDrag) return;
+  camTheta -= (e.clientX-dragX)*0.01;
+  camPhi   -= (e.clientY-dragY)*0.01;
+  camPhi = Math.max(-Math.PI/2+0.05, Math.min(Math.PI/2-0.05, camPhi));
+  dragX=e.clientX; dragY=e.clientY;
+  if(!hintHidden){ document.getElementById('dragHint').classList.add('hidden'); hintHidden=true; }
+});
+canvas.addEventListener('mouseup',   ()=>{ isDrag=false; });
+canvas.addEventListener('wheel',     e=>{ camDist *= (1+e.deltaY*0.001); camDist=Math.max(5,Math.min(200,camDist)); });
+
+// Touch
+let lastTouchX=0, lastTouchY=0;
+canvas.addEventListener('touchstart', e=>{ lastTouchX=e.touches[0].clientX; lastTouchY=e.touches[0].clientY; });
+canvas.addEventListener('touchmove',  e=>{
+  e.preventDefault();
+  camTheta -= (e.touches[0].clientX-lastTouchX)*0.01;
+  camPhi   -= (e.touches[0].clientY-lastTouchY)*0.01;
+  camPhi = Math.max(-Math.PI/2+0.05, Math.min(Math.PI/2-0.05, camPhi));
+  lastTouchX=e.touches[0].clientX; lastTouchY=e.touches[0].clientY;
+},{passive:false});
+
+// ─────────────────────────────────────────────────────────────────
+//  RENDER LOOP
+// ─────────────────────────────────────────────────────────────────
+let lastT=0;
+
+function resize(){
+  const w=canvas.clientWidth, h=canvas.clientHeight;
+  if(canvas.width!==w || canvas.height!==h){
+    canvas.width=w; canvas.height=h;
+    gl.viewport(0,0,w,h);
+  }
+}
+
+function render(ts){
+  requestAnimationFrame(render);
+  resize();
+  if(!isDrag) camTheta += state.rotSpeed * 0.005;
+
+  const asp = canvas.width/canvas.height;
+  const P = perspective(state.fov, asp, 0.1, 1000);
+  const camX = camDist*Math.cos(camPhi)*Math.sin(camTheta);
+  const camY = camDist*Math.sin(camPhi);
+  const camZ = camDist*Math.cos(camPhi)*Math.cos(camTheta);
+
+  // Simple view matrix via lookAt approximation
+  const T = translate(-camX,-camY,-camZ);
+  const RY = rotY(-camTheta);
+  const RX = rotX(-camPhi);
+  const MVP = mulMat(P, mulMat(RX, mulMat(RY, T)));
+
+  gl.clearColor(0,0,0,1);
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+  gl.disable(gl.DEPTH_TEST);
+
+  // Draw axis lines
+  if(state.showAxis) {
+    gl.useProgram(prog2);
+    gl.uniformMatrix4fv(uMVP2, false, MVP);
+    gl.bindBuffer(gl.ARRAY_BUFFER, axisBuf);
+    gl.enableVertexAttribArray(aPos2);
+    gl.vertexAttribPointer(aPos2,3,gl.FLOAT,false,0,0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, axisColBuf);
+    gl.enableVertexAttribArray(aCol2);
+    gl.vertexAttribPointer(aCol2,3,gl.FLOAT,false,0,0);
+    gl.drawArrays(gl.LINES,0,6);
+  }
+
+  // Draw point cloud
+  if(numPts>0){
+    gl.useProgram(prog);
+    gl.uniformMatrix4fv(uMVP, false, MVP);
+    gl.uniform1f(uSize,  state.size);
+    gl.uniform1f(uAlpha, state.alpha);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, posBuf);
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos,3,gl.FLOAT,false,0,0);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, colBuf);
+    gl.enableVertexAttribArray(aColor);
+    gl.vertexAttribPointer(aColor,3,gl.FLOAT,false,0,0);
+
+    gl.drawArrays(gl.POINTS,0,numPts);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  INIT
+// ─────────────────────────────────────────────────────────────────
+buildSidebar();
+initSliders();
+generateCloud();
+requestAnimationFrame(render);
+</script>
+</body>
+</html>

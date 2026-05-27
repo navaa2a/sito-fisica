@@ -1,0 +1,629 @@
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { motion } from 'framer-motion'
+import {
+  Play,
+  Pause,
+  RotateCcw,
+  Sparkles,
+  Activity,
+  Orbit,
+  BrainCircuit,
+  Waves,
+  Download,
+  ZoomIn,
+  Eye,
+} from 'lucide-react'
+
+const presets = {
+  classical: {
+    label: 'Classical Chaos',
+    theta1: Math.PI / 2,
+    theta2: Math.PI / 2.01,
+    omega1: 0,
+    omega2: 0,
+  },
+  stable: {
+    label: 'Stability Island',
+    theta1: 0.4,
+    theta2: 0.5,
+    omega1: 0,
+    omega2: 0,
+  },
+  energetic: {
+    label: 'High Energy',
+    theta1: 2.5,
+    theta2: 2.8,
+    omega1: 1.2,
+    omega2: -0.8,
+  },
+}
+
+const sidebarInfo = [
+  {
+    title: 'Condizioni iniziali',
+    description:
+      'Piccolissime variazioni negli angoli o nelle velocità iniziali generano traiettorie completamente differenti. Questo è il cuore del comportamento caotico.',
+  },
+  {
+    title: 'Isole di stabilità',
+    description:
+      'Zone nello spazio delle fasi in cui il sistema mantiene traiettorie periodiche o quasi-periodiche invece di diventare completamente caotico.',
+  },
+  {
+    title: 'Frattale dinamico',
+    description:
+      'La mappa frattale mostra la sensibilità del sistema alle condizioni iniziali colorando le regioni in base alla divergenza delle traiettorie.',
+  },
+]
+
+function Slider({ label, value, setValue, min, max, step, description }) {
+  return (
+    <div className="mb-5">
+      <div className="flex justify-between items-center mb-1">
+        <div className="text-sm font-semibold text-slate-200">{label}</div>
+        <div className="font-mono text-cyan-400 text-xs">{Number(value).toFixed(2)}</div>
+      </div>
+
+      <div className="text-[11px] leading-5 text-slate-500 mb-2 font-mono">
+        {description}
+      </div>
+
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => setValue(Number(e.target.value))}
+        className="w-full accent-cyan-400 cursor-pointer"
+      />
+    </div>
+  )
+}
+
+function rk4Step(state, params, dt) {
+  const { g, m1, m2, l1, l2, damping } = params
+
+  const derivs = (s) => {
+    const { t1, t2, w1, w2 } = s
+
+    const delta = t2 - t1
+
+    const den1 = (m1 + m2) * l1 - m2 * l1 * Math.cos(delta) * Math.cos(delta)
+    const den2 = (l2 / l1) * den1
+
+    const a1 =
+      (m2 * l1 * w1 * w1 * Math.sin(delta) * Math.cos(delta) +
+        m2 * g * Math.sin(t2) * Math.cos(delta) +
+        m2 * l2 * w2 * w2 * Math.sin(delta) -
+        (m1 + m2) * g * Math.sin(t1)) /
+        den1 -
+      damping * w1
+
+    const a2 =
+      (-m2 * l2 * w2 * w2 * Math.sin(delta) * Math.cos(delta) +
+        (m1 + m2) *
+          (g * Math.sin(t1) * Math.cos(delta) -
+            l1 * w1 * w1 * Math.sin(delta) -
+            g * Math.sin(t2))) /
+        den2 -
+      damping * w2
+
+    return {
+      t1: w1,
+      t2: w2,
+      w1: a1,
+      w2: a2,
+    }
+  }
+
+  const add = (a, b, scale = 1) => ({
+    t1: a.t1 + b.t1 * scale,
+    t2: a.t2 + b.t2 * scale,
+    w1: a.w1 + b.w1 * scale,
+    w2: a.w2 + b.w2 * scale,
+  })
+
+  const k1 = derivs(state)
+  const k2 = derivs(add(state, k1, dt / 2))
+  const k3 = derivs(add(state, k2, dt / 2))
+  const k4 = derivs(add(state, k3, dt))
+
+  return {
+    t1: state.t1 + (dt / 6) * (k1.t1 + 2 * k2.t1 + 2 * k3.t1 + k4.t1),
+    t2: state.t2 + (dt / 6) * (k1.t2 + 2 * k2.t2 + 2 * k3.t2 + k4.t2),
+    w1: state.w1 + (dt / 6) * (k1.w1 + 2 * k2.w1 + 2 * k3.w1 + k4.w1),
+    w2: state.w2 + (dt / 6) * (k1.w2 + 2 * k2.w2 + 2 * k3.w2 + k4.w2),
+  }
+}
+
+function generateFractal(ctx, width, height, params) {
+  const image = ctx.createImageData(width, height)
+
+  for (let x = 0; x < width; x++) {
+    for (let y = 0; y < height; y++) {
+      const theta1 = (x / width) * Math.PI * 2
+      const theta2 = (y / height) * Math.PI * 2
+
+      let state = {
+        t1: theta1,
+        t2: theta2,
+        w1: params.omega1,
+        w2: params.omega2,
+      }
+
+      let divergence = 0
+
+      for (let i = 0; i < 60; i++) {
+        state = rk4Step(state, params, 0.02)
+        divergence += Math.abs(state.w1 - state.w2)
+      }
+
+      const idx = (y * width + x) * 4
+
+      const c = Math.min(255, divergence * 2)
+
+      image.data[idx] = c
+      image.data[idx + 1] = 255 - c
+      image.data[idx + 2] = 255
+      image.data[idx + 3] = 255
+    }
+  }
+
+  ctx.putImageData(image, 0, 0)
+}
+
+export default function DoublePendulumFractalLab() {
+  const canvasRef = useRef(null)
+  const fractalRef = useRef(null)
+
+  const [running, setRunning] = useState(true)
+  const [showTrail, setShowTrail] = useState(true)
+  const [showFractal, setShowFractal] = useState(true)
+  const [zoom, setZoom] = useState(1)
+
+  const [theta1, setTheta1] = useState(presets.classical.theta1)
+  const [theta2, setTheta2] = useState(presets.classical.theta2)
+  const [omega1, setOmega1] = useState(presets.classical.omega1)
+  const [omega2, setOmega2] = useState(presets.classical.omega2)
+
+  const [m1, setM1] = useState(1)
+  const [m2, setM2] = useState(1)
+  const [l1, setL1] = useState(1)
+  const [l2, setL2] = useState(1)
+  const [g, setG] = useState(9.81)
+  const [damping, setDamping] = useState(0.001)
+
+  const params = useMemo(
+    () => ({
+      theta1,
+      theta2,
+      omega1,
+      omega2,
+      m1,
+      m2,
+      l1,
+      l2,
+      g,
+      damping,
+    }),
+    [theta1, theta2, omega1, omega2, m1, m2, l1, l2, g, damping]
+  )
+
+  const stateRef = useRef({
+    t1: theta1,
+    t2: theta2,
+    w1: omega1,
+    w2: omega2,
+  })
+
+  const trailRef = useRef([])
+
+  useEffect(() => {
+    stateRef.current = {
+      t1: theta1,
+      t2: theta2,
+      w1: omega1,
+      w2: omega2,
+    }
+  }, [theta1, theta2, omega1, omega2])
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    const ctx = canvas.getContext('2d')
+
+    canvas.width = 1000
+    canvas.height = 800
+
+    let animation
+
+    const render = () => {
+      ctx.fillStyle = 'rgba(0,0,0,0.08)'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+      const cx = canvas.width / 2
+      const cy = 180
+
+      if (running) {
+        stateRef.current = rk4Step(stateRef.current, params, 0.015)
+      }
+
+      const s = stateRef.current
+
+      const scale = 180 * zoom
+
+      const x1 = cx + Math.sin(s.t1) * l1 * scale
+      const y1 = cy + Math.cos(s.t1) * l1 * scale
+
+      const x2 = x1 + Math.sin(s.t2) * l2 * scale
+      const y2 = y1 + Math.cos(s.t2) * l2 * scale
+
+      if (showTrail) {
+        trailRef.current.push([x2, y2])
+        if (trailRef.current.length > 2500) trailRef.current.shift()
+
+        ctx.beginPath()
+        trailRef.current.forEach((p, i) => {
+          if (i === 0) ctx.moveTo(p[0], p[1])
+          else ctx.lineTo(p[0], p[1])
+        })
+
+        ctx.strokeStyle = 'rgba(0,212,255,0.4)'
+        ctx.lineWidth = 1.2
+        ctx.stroke()
+      }
+
+      ctx.beginPath()
+      ctx.moveTo(cx, cy)
+      ctx.lineTo(x1, y1)
+      ctx.lineTo(x2, y2)
+      ctx.strokeStyle = '#ffffff'
+      ctx.lineWidth = 2
+      ctx.stroke()
+
+      ctx.beginPath()
+      ctx.arc(x1, y1, m1 * 10, 0, Math.PI * 2)
+      ctx.fillStyle = '#00d4ff'
+      ctx.fill()
+
+      ctx.beginPath()
+      ctx.arc(x2, y2, m2 * 10, 0, Math.PI * 2)
+      ctx.fillStyle = '#ff6b35'
+      ctx.fill()
+
+      animation = requestAnimationFrame(render)
+    }
+
+    render()
+
+    return () => cancelAnimationFrame(animation)
+  }, [params, running, showTrail, zoom, l1, l2, m1, m2])
+
+  useEffect(() => {
+    if (!showFractal) return
+
+    const canvas = fractalRef.current
+    const ctx = canvas.getContext('2d')
+
+    canvas.width = 450
+    canvas.height = 450
+
+    generateFractal(ctx, 450, 450, params)
+  }, [params, showFractal])
+
+  const loadPreset = (preset) => {
+    setTheta1(preset.theta1)
+    setTheta2(preset.theta2)
+    setOmega1(preset.omega1)
+    setOmega2(preset.omega2)
+    trailRef.current = []
+  }
+
+  return (
+    <div className="bg-black text-slate-200 min-h-screen overflow-hidden flex">
+      <aside className="w-[360px] bg-[#080c10] border-r border-cyan-950/40 overflow-y-auto">
+        <div className="p-6 border-b border-cyan-950/30">
+          <div className="uppercase tracking-[0.3em] text-[10px] font-mono text-cyan-400 mb-3">
+            Quantum Chaos Laboratory
+          </div>
+
+          <h1 className="text-3xl font-bold mb-3 leading-tight">
+            Double Pendulum Fractal Engine
+          </h1>
+
+          <p className="text-sm text-slate-500 leading-7 font-mono">
+            Simulatore scientifico avanzato del doppio pendolo caotico con spazio delle fasi,
+            rendering frattale, studio delle condizioni iniziali e identificazione delle isole di stabilità.
+          </p>
+        </div>
+
+        <div className="p-5 border-b border-cyan-950/30">
+          <div className="flex items-center gap-2 text-cyan-300 mb-4 font-mono text-xs uppercase tracking-[0.2em]">
+            <Sparkles size={14} />
+            Presets
+          </div>
+
+          <div className="grid grid-cols-1 gap-2">
+            {Object.values(presets).map((preset) => (
+              <button
+                key={preset.label}
+                onClick={() => loadPreset(preset)}
+                className="bg-black border border-cyan-950/50 hover:border-cyan-400/60 transition-all rounded-xl p-3 text-left"
+              >
+                <div className="text-sm font-semibold">{preset.label}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="p-5 border-b border-cyan-950/30">
+          <div className="flex items-center gap-2 text-cyan-300 mb-5 font-mono text-xs uppercase tracking-[0.2em]">
+            <Orbit size={14} />
+            Condizioni iniziali
+          </div>
+
+          <Slider
+            label="Theta 1"
+            value={theta1}
+            setValue={setTheta1}
+            min={-3.14}
+            max={3.14}
+            step={0.01}
+            description="Angolo iniziale del primo braccio. Piccole variazioni modificano drasticamente la traiettoria futura."
+          />
+
+          <Slider
+            label="Theta 2"
+            value={theta2}
+            setValue={setTheta2}
+            min={-3.14}
+            max={3.14}
+            step={0.01}
+            description="Angolo iniziale del secondo braccio del sistema dinamico."
+          />
+
+          <Slider
+            label="Omega 1"
+            value={omega1}
+            setValue={setOmega1}
+            min={-5}
+            max={5}
+            step={0.01}
+            description="Velocità angolare iniziale del primo braccio."
+          />
+
+          <Slider
+            label="Omega 2"
+            value={omega2}
+            setValue={setOmega2}
+            min={-5}
+            max={5}
+            step={0.01}
+            description="Velocità angolare iniziale del secondo braccio."
+          />
+        </div>
+
+        <div className="p-5 border-b border-cyan-950/30">
+          <div className="flex items-center gap-2 text-orange-300 mb-5 font-mono text-xs uppercase tracking-[0.2em]">
+            <Waves size={14} />
+            Parametri fisici
+          </div>
+
+          <Slider
+            label="Massa 1"
+            value={m1}
+            setValue={setM1}
+            min={0.2}
+            max={5}
+            step={0.01}
+            description="Massa del primo corpo. Influenza l'energia del sistema."
+          />
+
+          <Slider
+            label="Massa 2"
+            value={m2}
+            setValue={setM2}
+            min={0.2}
+            max={5}
+            step={0.01}
+            description="Massa del secondo corpo del pendolo doppio."
+          />
+
+          <Slider
+            label="Lunghezza 1"
+            value={l1}
+            setValue={setL1}
+            min={0.4}
+            max={2}
+            step={0.01}
+            description="Lunghezza del primo braccio del pendolo."
+          />
+
+          <Slider
+            label="Lunghezza 2"
+            value={l2}
+            setValue={setL2}
+            min={0.4}
+            max={2}
+            step={0.01}
+            description="Lunghezza del secondo braccio."
+          />
+
+          <Slider
+            label="Gravità"
+            value={g}
+            setValue={setG}
+            min={0}
+            max={20}
+            step={0.01}
+            description="Campo gravitazionale applicato al sistema."
+          />
+
+          <Slider
+            label="Attrito"
+            value={damping}
+            setValue={setDamping}
+            min={0}
+            max={0.05}
+            step={0.0001}
+            description="Smorzamento energetico del sistema dinamico."
+          />
+        </div>
+
+        <div className="p-5 space-y-4">
+          {sidebarInfo.map((info) => (
+            <div
+              key={info.title}
+              className="bg-cyan-500/5 border border-cyan-500/10 rounded-2xl p-4"
+            >
+              <div className="font-semibold text-white mb-2">{info.title}</div>
+              <div className="text-xs text-slate-500 leading-6 font-mono">
+                {info.description}
+              </div>
+            </div>
+          ))}
+        </div>
+      </aside>
+
+      <main className="flex-1 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,212,255,0.08),transparent_60%)]" />
+
+        <div className="relative z-10 p-6 h-full flex flex-col gap-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-xs uppercase tracking-[0.25em] text-cyan-400 font-mono mb-2">
+                Real Time Simulation
+              </div>
+              <div className="text-3xl font-bold">Chaos & Stability Explorer</div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setRunning(!running)}
+                className="bg-cyan-500/10 border border-cyan-400/30 hover:border-cyan-300 px-4 py-3 rounded-2xl"
+              >
+                {running ? <Pause /> : <Play />}
+              </button>
+
+              <button
+                onClick={() => {
+                  trailRef.current = []
+                  stateRef.current = {
+                    t1: theta1,
+                    t2: theta2,
+                    w1: omega1,
+                    w2: omega2,
+                  }
+                }}
+                className="bg-orange-500/10 border border-orange-400/30 hover:border-orange-300 px-4 py-3 rounded-2xl"
+              >
+                <RotateCcw />
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-5 flex-1 min-h-0">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="col-span-2 bg-[#080c10]/90 border border-cyan-950/30 rounded-3xl overflow-hidden relative"
+            >
+              <div className="absolute top-4 left-4 z-10 flex gap-2">
+                <button
+                  onClick={() => setShowTrail(!showTrail)}
+                  className="bg-black/50 border border-cyan-400/20 px-3 py-2 rounded-xl text-xs flex items-center gap-2"
+                >
+                  <Eye size={14} />
+                  Trail
+                </button>
+
+                <button
+                  onClick={() => setZoom((z) => Math.min(2.5, z + 0.1))}
+                  className="bg-black/50 border border-cyan-400/20 px-3 py-2 rounded-xl text-xs flex items-center gap-2"
+                >
+                  <ZoomIn size={14} />
+                  Zoom
+                </button>
+              </div>
+
+              <canvas ref={canvasRef} className="w-full h-full" />
+            </motion.div>
+
+            <div className="flex flex-col gap-5 overflow-auto">
+              <div className="bg-[#080c10]/90 border border-cyan-950/30 rounded-3xl p-4">
+                <div className="flex items-center gap-2 text-cyan-300 font-mono text-xs uppercase tracking-[0.2em] mb-4">
+                  <BrainCircuit size={14} />
+                  Stability Fractal
+                </div>
+
+                <div className="text-xs text-slate-500 leading-6 mb-4 font-mono">
+                  Le regioni più fredde rappresentano traiettorie relativamente stabili. Le regioni luminose indicano divergenza caotica elevata.
+                </div>
+
+                <canvas
+                  ref={fractalRef}
+                  className="rounded-2xl border border-cyan-950/40 w-full aspect-square"
+                />
+              </div>
+
+              <div className="bg-[#080c10]/90 border border-purple-950/30 rounded-3xl p-5">
+                <div className="flex items-center gap-2 text-purple-300 font-mono text-xs uppercase tracking-[0.2em] mb-4">
+                  <Activity size={14} />
+                  Chaos Metrics
+                </div>
+
+                <div className="space-y-4 text-sm">
+                  <div className="flex justify-between border-b border-slate-800 pb-2">
+                    <span className="text-slate-500">Energia stimata</span>
+                    <span className="text-cyan-300 font-mono">
+                      {((m1 + m2) * g).toFixed(2)}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between border-b border-slate-800 pb-2">
+                    <span className="text-slate-500">Divergenza</span>
+                    <span className="text-orange-300 font-mono">
+                      {(Math.abs(omega1 - omega2) * 10).toFixed(2)}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between border-b border-slate-800 pb-2">
+                    <span className="text-slate-500">Stabilità</span>
+                    <span className="text-purple-300 font-mono">
+                      {(1 / (1 + Math.abs(omega1 - omega2))).toFixed(3)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-[#080c10]/90 border border-orange-950/30 rounded-3xl p-5">
+                <div className="flex items-center gap-2 text-orange-300 font-mono text-xs uppercase tracking-[0.2em] mb-4">
+                  <Download size={14} />
+                  Export & Research
+                </div>
+
+                <div className="text-xs text-slate-500 leading-6 mb-4 font-mono">
+                  Salva configurazioni, genera dataset per ricerca scientifica ed esporta immagini ad alta risoluzione dei frattali.
+                </div>
+
+                <div className="grid grid-cols-1 gap-2">
+                  <button className="bg-cyan-500/10 border border-cyan-400/20 hover:border-cyan-400 rounded-xl py-3 text-sm transition-all">
+                    Export PNG Fractal
+                  </button>
+
+                  <button className="bg-purple-500/10 border border-purple-400/20 hover:border-purple-400 rounded-xl py-3 text-sm transition-all">
+                    Save Simulation State
+                  </button>
+
+                  <button className="bg-orange-500/10 border border-orange-400/20 hover:border-orange-400 rounded-xl py-3 text-sm transition-all">
+                    Generate Stability Scan
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  )
+}
