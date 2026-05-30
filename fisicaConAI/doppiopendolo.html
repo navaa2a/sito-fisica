@@ -1,629 +1,1134 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { motion } from 'framer-motion'
-import {
-  Play,
-  Pause,
-  RotateCcw,
-  Sparkles,
-  Activity,
-  Orbit,
-  BrainCircuit,
-  Waves,
-  Download,
-  ZoomIn,
-  Eye,
-} from 'lucide-react'
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Doppio pendolo: simulatore, frattale e mappa angolare</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: rgba(255,255,255,.08);
+      --panel2: rgba(255,255,255,.12);
+      --text: #f5f7ff;
+      --muted: #aeb8d6;
+      --line: rgba(255,255,255,.18);
+      --accent: #8bd3ff;
+      --accent2: #c3ff8b;
+      --danger: #ff8b9a;
+      --shadow: 0 20px 55px rgba(0,0,0,.35);
+      --radius: 18px;
+      color-scheme: dark;
+    }
 
-const presets = {
-  classical: {
-    label: 'Classical Chaos',
-    theta1: Math.PI / 2,
-    theta2: Math.PI / 2.01,
-    omega1: 0,
-    omega2: 0,
-  },
-  stable: {
-    label: 'Stability Island',
-    theta1: 0.4,
-    theta2: 0.5,
-    omega1: 0,
-    omega2: 0,
-  },
-  energetic: {
-    label: 'High Energy',
-    theta1: 2.5,
-    theta2: 2.8,
-    omega1: 1.2,
-    omega2: -0.8,
-  },
-}
+    * { box-sizing: border-box; }
 
-const sidebarInfo = [
-  {
-    title: 'Condizioni iniziali',
-    description:
-      'Piccolissime variazioni negli angoli o nelle velocità iniziali generano traiettorie completamente differenti. Questo è il cuore del comportamento caotico.',
-  },
-  {
-    title: 'Isole di stabilità',
-    description:
-      'Zone nello spazio delle fasi in cui il sistema mantiene traiettorie periodiche o quasi-periodiche invece di diventare completamente caotico.',
-  },
-  {
-    title: 'Frattale dinamico',
-    description:
-      'La mappa frattale mostra la sensibilità del sistema alle condizioni iniziali colorando le regioni in base alla divergenza delle traiettorie.',
-  },
-]
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 20% 0%, rgba(139,211,255,.17), transparent 38%),
+        radial-gradient(circle at 80% 8%, rgba(195,255,139,.13), transparent 32%),
+        linear-gradient(135deg, #08101f 0%, #11152a 48%, #090d18 100%);
+      color: var(--text);
+      overflow-x: hidden;
+    }
 
-function Slider({ label, value, setValue, min, max, step, description }) {
-  return (
-    <div className="mb-5">
-      <div className="flex justify-between items-center mb-1">
-        <div className="text-sm font-semibold text-slate-200">{label}</div>
-        <div className="font-mono text-cyan-400 text-xs">{Number(value).toFixed(2)}</div>
+    header {
+      padding: 26px 24px 12px;
+      max-width: 1440px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(1.9rem, 4vw, 3.4rem);
+      letter-spacing: -0.055em;
+      line-height: 1.02;
+    }
+
+    .subtitle {
+      max-width: 940px;
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.55;
+      margin: 0;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 18px;
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 14px 24px 28px;
+    }
+
+    .panel, .stage {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    .panel {
+      padding: 16px;
+      align-self: start;
+      position: sticky;
+      top: 12px;
+      max-height: calc(100vh - 24px);
+      overflow: auto;
+    }
+
+    .stage {
+      min-height: 740px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    button, select, input {
+      font: inherit;
+    }
+
+    button, .button-like {
+      border: 1px solid rgba(255,255,255,.18);
+      background: rgba(255,255,255,.09);
+      color: var(--text);
+      border-radius: 13px;
+      padding: 10px 11px;
+      cursor: pointer;
+      transition: transform .12s ease, background .12s ease, border-color .12s ease;
+    }
+
+    button:hover { transform: translateY(-1px); background: rgba(255,255,255,.14); }
+    button:active { transform: translateY(0); }
+    button.active { background: linear-gradient(135deg, rgba(139,211,255,.26), rgba(195,255,139,.15)); border-color: rgba(139,211,255,.55); }
+    button.primary { background: linear-gradient(135deg, rgba(139,211,255,.34), rgba(139,211,255,.12)); border-color: rgba(139,211,255,.6); }
+    button.good { background: linear-gradient(135deg, rgba(195,255,139,.28), rgba(195,255,139,.10)); border-color: rgba(195,255,139,.5); }
+    button.warn { background: linear-gradient(135deg, rgba(255,139,154,.26), rgba(255,139,154,.09)); border-color: rgba(255,139,154,.48); }
+
+    .section {
+      border-top: 1px solid var(--line);
+      padding-top: 14px;
+      margin-top: 14px;
+    }
+
+    .section:first-of-type { border-top: 0; padding-top: 0; margin-top: 0; }
+
+    .section h2 {
+      font-size: .9rem;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      color: var(--muted);
+      margin: 0 0 10px;
+    }
+
+    label {
+      display: grid;
+      gap: 6px;
+      margin: 10px 0;
+      color: var(--muted);
+      font-size: .9rem;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 86px;
+      align-items: center;
+      gap: 10px;
+    }
+
+    input[type="range"] { width: 100%; accent-color: var(--accent); }
+
+    input[type="number"], select {
+      width: 100%;
+      border: 1px solid rgba(255,255,255,.18);
+      background: rgba(0,0,0,.22);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 9px 10px;
+      outline: none;
+    }
+
+    .mini {
+      font-size: .82rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+
+    .readout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .metric {
+      background: rgba(0,0,0,.2);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 14px;
+      padding: 10px;
+    }
+
+    .metric b { display:block; font-size: .78rem; color: var(--muted); font-weight: 500; margin-bottom: 4px; }
+    .metric span { font-variant-numeric: tabular-nums; }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at center, rgba(255,255,255,.04), rgba(0,0,0,.16));
+    }
+
+    #simCanvas, #fractalCanvas, #mapCanvas { height: 740px; }
+    #fractalCanvas, #mapCanvas { cursor: crosshair; }
+
+    .canvasWrap { position: relative; min-height: 740px; }
+
+    .hud {
+      position: absolute;
+      left: 16px;
+      bottom: 16px;
+      right: 16px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    .pill {
+      background: rgba(0,0,0,.42);
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: 999px;
+      padding: 8px 11px;
+      color: var(--text);
+      font-size: .84rem;
+      backdrop-filter: blur(12px);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .hidden { display: none !important; }
+
+    .progress {
+      height: 10px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(255,255,255,.09);
+      border: 1px solid rgba(255,255,255,.12);
+      margin-top: 8px;
+    }
+    .bar { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width .12s linear; }
+
+    .legend {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .grad {
+      height: 13px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.16);
+      background: linear-gradient(90deg, white, #aaa, #222, black);
+    }
+
+    .grad2 {
+      height: 13px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.16);
+      background: linear-gradient(90deg, #101010, #555, #aaa, #fff);
+    }
+
+    .kbd {
+      border: 1px solid rgba(255,255,255,.22);
+      border-bottom-color: rgba(255,255,255,.35);
+      border-radius: 7px;
+      padding: 1px 6px;
+      background: rgba(255,255,255,.1);
+      color: var(--text);
+      font-size: .78rem;
+    }
+
+    @media (max-width: 980px) {
+      main { grid-template-columns: 1fr; }
+      .panel { position: static; max-height: none; }
+      #simCanvas, #fractalCanvas, #mapCanvas, .canvasWrap { height: 620px; min-height: 620px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Doppio pendolo interattivo</h1>
+    <p class="subtitle">Tre modalità: simulazione con angoli e velocità iniziali precisi, frattale di stabilità cliccabile e zoomabile, mappa angolare con gli angoli sui due assi. Tutto gira localmente nel browser.</p>
+  </header>
+
+  <main>
+    <aside class="panel">
+      <div class="tabs">
+        <button id="tabSim" class="active">1 · Sim</button>
+        <button id="tabFrac">2 · Frattale</button>
+        <button id="tabMap">3 · Grafico</button>
       </div>
 
-      <div className="text-[11px] leading-5 text-slate-500 mb-2 font-mono">
-        {description}
+      <section id="simControls" class="section">
+        <h2>Modalità 1 · Simulazione</h2>
+
+        <label>Preset stabili / interessanti
+          <select id="presetSelect"></select>
+        </label>
+        <div class="grid2">
+          <button id="applyPreset" class="good">Applica preset</button>
+          <button id="resetSim">Reset</button>
+        </div>
+
+        <label>θ₁ iniziale, gradi
+          <div class="row"><input id="theta1" type="range" min="-180" max="180" step="0.001" value="35"><input id="theta1Num" type="number" step="0.001" value="35"></div>
+        </label>
+        <label>θ₂ iniziale, gradi
+          <div class="row"><input id="theta2" type="range" min="-180" max="180" step="0.001" value="-35"><input id="theta2Num" type="number" step="0.001" value="-35"></div>
+        </label>
+        <label>ω₁ iniziale, rad/s
+          <div class="row"><input id="omega1" type="range" min="-8" max="8" step="0.0001" value="0"><input id="omega1Num" type="number" step="0.0001" value="0"></div>
+        </label>
+        <label>ω₂ iniziale, rad/s
+          <div class="row"><input id="omega2" type="range" min="-8" max="8" step="0.0001" value="0"><input id="omega2Num" type="number" step="0.0001" value="0"></div>
+        </label>
+
+        <div class="grid2 section">
+          <button id="playPause" class="primary">Pausa</button>
+          <button id="clearTrail">Pulisci scia</button>
+        </div>
+        <label><span><input id="showTrail" type="checkbox" checked> Mostra scia</span></label>
+        <label>Lunghezza scia
+          <div class="row"><input id="trailLen" type="range" min="20" max="6000" step="10" value="1800"><input id="trailLenNum" type="number" step="10" value="1800"></div>
+        </label>
+        <label>Velocità simulazione
+          <div class="row"><input id="speed" type="range" min="0.05" max="4" step="0.01" value="1"><input id="speedNum" type="number" step="0.01" value="1"></div>
+        </label>
+        <label>Precisione integratore, passi/frame
+          <div class="row"><input id="steps" type="range" min="1" max="40" step="1" value="12"><input id="stepsNum" type="number" step="1" value="12"></div>
+        </label>
+
+        <div class="readout">
+          <div class="metric"><b>θ₁ attuale</b><span id="rTheta1">0°</span></div>
+          <div class="metric"><b>θ₂ attuale</b><span id="rTheta2">0°</span></div>
+          <div class="metric"><b>ω₁</b><span id="rOmega1">0</span></div>
+          <div class="metric"><b>ω₂</b><span id="rOmega2">0</span></div>
+        </div>
+      </section>
+
+      <section id="fractalControls" class="section hidden">
+        <h2>Modalità 2 · Frattale di stabilità</h2>
+        <p class="mini">Ogni pixel è un doppio pendolo: asse X = θ₁, asse Y = θ₂. Nero = molto stabile; bianco = instabile; grigi intermedi. Clicca per creare un pendolo con quegli angoli.</p>
+        <div class="grid2">
+          <button id="renderFractal" class="primary">Calcola frattale</button>
+          <button id="resetZoomFrac">Reset zoom</button>
+          <button id="useFractalPoint" class="good">Crea pendolo</button>
+          <button id="exportFractal">Esporta PNG</button>
+        </div>
+        <label>Risoluzione calcolo
+          <select id="fracResolution">
+            <option value="160">160×160 veloce</option>
+            <option value="240" selected>240×240 media</option>
+            <option value="360">360×360 alta</option>
+            <option value="520">520×520 molto alta</option>
+          </select>
+        </label>
+        <label>Tempo simulato per pixel
+          <div class="row"><input id="fracTime" type="range" min="1" max="100" step="0.5" value="7"><input id="fracTimeNum" type="number" step="0.5" value="7"></div>
+        </label>
+        <label>Soglia stabilità, rad/s
+          <div class="row"><input id="fracThresh" type="range" min="1" max="100" step="0.1" value="6"><input id="fracThreshNum" type="number" step="0.1" value="6"></div>
+        </label>
+        <div class="progress"><div id="fracBar" class="bar"></div></div>
+        <div class="legend">
+          <div class="grad"></div>
+          <p class="mini">Legenda logaritmica: bianco/giallo = caos rapido, blu/viola = transizione, nero = stabile o quasi-stabile. Trascina un rettangolo per zoomare su un’area specifica; click breve = selezione del punto.</p>
+        </div>
+        <div class="readout">
+          <div class="metric"><b>θ₁ puntatore</b><span id="fracT1">—</span></div>
+          <div class="metric"><b>θ₂ puntatore</b><span id="fracT2">—</span></div>
+        </div>
+      </section>
+
+      <section id="mapControls" class="section hidden">
+        <h2>Modalità 3 · Grafico θ₁/θ₂</h2>
+        <p class="mini">Mappa delle condizioni iniziali con θ₁ sull’asse orizzontale e θ₂ sull’asse verticale. Il valore rappresenta il tempo prima del primo ribaltamento o, se non avviene, la stabilità relativa.</p>
+        <div class="grid2">
+          <button id="renderMap" class="primary">Calcola grafico</button>
+          <button id="sendMapToSim">Usa punto scelto</button>
+          <button id="exportMap">Esporta PNG</button>
+        </div>
+        <label>Tipo grafico
+          <select id="mapMode">
+            <option value="flip" selected>Tempo al primo ribaltamento</option>
+            <option value="energy">Energia iniziale normalizzata</option>
+            <option value="stability">Stabilità locale</option>
+          </select>
+        </label>
+        <label>Risoluzione grafico
+          <select id="mapResolution">
+            <option value="180">180×180 veloce</option>
+            <option value="280" selected>280×280 media</option>
+            <option value="420">420×420 alta</option>
+          </select>
+        </label>
+        <div class="progress"><div id="mapBar" class="bar"></div></div>
+        <div class="legend">
+          <div class="grad2"></div>
+          <p class="mini">Clicca un punto per leggerne gli angoli. Doppio click: invia subito alla simulazione.</p>
+        </div>
+        <div class="readout">
+          <div class="metric"><b>θ₁ scelto</b><span id="mapT1">—</span></div>
+          <div class="metric"><b>θ₂ scelto</b><span id="mapT2">—</span></div>
+        </div>
+      </section>
+    </aside>
+
+    <section class="stage">
+      <div id="simStage" class="canvasWrap">
+        <canvas id="simCanvas"></canvas>
+        <div class="hud">
+          <span class="pill">RK4 · masse e lunghezze uguali</span>
+          <span class="pill" id="energyReadout">Energia: —</span>
+          <span class="pill">Trascina i bob per impostare gli angoli</span>
+        </div>
       </div>
 
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => setValue(Number(e.target.value))}
-        className="w-full accent-cyan-400 cursor-pointer"
-      />
-    </div>
-  )
-}
+      <div id="fractalStage" class="canvasWrap hidden">
+        <canvas id="fractalCanvas"></canvas>
+        <div class="hud">
+          <span class="pill" id="fracView">θ₁,θ₂ ∈ [-180°, 180°]</span>
+          <span class="pill">Click = crea pendolo · Rotellina = zoom</span>
+        </div>
+      </div>
 
-function rk4Step(state, params, dt) {
-  const { g, m1, m2, l1, l2, damping } = params
+      <div id="mapStage" class="canvasWrap hidden">
+        <canvas id="mapCanvas"></canvas>
+        <div class="hud">
+          <span class="pill">Asse X = θ₁ · Asse Y = θ₂</span>
+          <span class="pill" id="mapInfo">Nessun punto selezionato</span>
+        </div>
+      </div>
+    </section>
+  </main>
 
-  const derivs = (s) => {
-    const { t1, t2, w1, w2 } = s
+  <script>
+    "use strict";
 
-    const delta = t2 - t1
+    const TAU = Math.PI * 2;
+    const DEG = Math.PI / 180;
+    const RAD = 180 / Math.PI;
 
-    const den1 = (m1 + m2) * l1 - m2 * l1 * Math.cos(delta) * Math.cos(delta)
-    const den2 = (l2 / l1) * den1
+    const params = {
+      g: 9.81,
+      m1: 1,
+      m2: 1,
+      L1: 1,
+      L2: 1
+    };
 
-    const a1 =
-      (m2 * l1 * w1 * w1 * Math.sin(delta) * Math.cos(delta) +
-        m2 * g * Math.sin(t2) * Math.cos(delta) +
-        m2 * l2 * w2 * w2 * Math.sin(delta) -
-        (m1 + m2) * g * Math.sin(t1)) /
-        den1 -
-      damping * w1
+    const state = {
+      theta1: 35 * DEG,
+      theta2: -35 * DEG,
+      omega1: 0,
+      omega2: 0,
+      initial: { theta1: 35 * DEG, theta2: -35 * DEG, omega1: 0, omega2: 0 },
+      running: true,
+      trail: [],
+      dragging: null,
+      lastTime: performance.now()
+    };
 
-    const a2 =
-      (-m2 * l2 * w2 * w2 * Math.sin(delta) * Math.cos(delta) +
-        (m1 + m2) *
-          (g * Math.sin(t1) * Math.cos(delta) -
-            l1 * w1 * w1 * Math.sin(delta) -
-            g * Math.sin(t2))) /
-        den2 -
-      damping * w2
+    const presets = [
+      { name: "Piccole oscillazioni in fase · stabile", t1: 8, t2: 8, w1: 0, w2: 0, note: "Modo quasi-lineare, niente ribaltamenti." },
+      { name: "Piccole oscillazioni opposte · stabile", t1: 9, t2: -9, w1: 0, w2: 0, note: "Bassa energia, moto regolare." },
+      { name: "Lissajous morbido · stabile", t1: 16, t2: -11, w1: 0, w2: 0, note: "Pattern pulito con scia lunga." },
+      { name: "Isola alta energia A · calcolata", t1: 170, t2: 100, w1: 0, w2: 0, note: "Condizione trovata con scansione numerica: energia alta, nessun flip nel test breve." },
+      { name: "Isola alta energia B · calcolata", t1: -170, t2: -100, w1: 0, w2: 0, note: "Simmetrica della precedente." },
+      { name: "Isola alta energia C · calcolata", t1: 175, t2: -130, w1: 0, w2: 0, note: "Area quasi-stabile dentro una regione caotica." },
+      { name: "Isola alta energia D · calcolata", t1: -175, t2: 130, w1: 0, w2: 0, note: "Area quasi-stabile dentro una regione caotica." },
+      { name: "Rotazione regolare · alta energia", t1: 180, t2: 120, w1: 0, w2: 0, note: "Moto vicino a un’isola di rotazione; sensibile alle perturbazioni." },
+      { name: "Soglia caotica", t1: 90, t2: -10, w1: 0, w2: 0, note: "Vicino alla transizione verso ribaltamenti." },
+      { name: "Caos classico", t1: 120, t2: -10, w1: 0, w2: 0, note: "Alta energia, forte sensibilità iniziale." }
+    ];
 
-    return {
-      t1: w1,
-      t2: w2,
-      w1: a1,
-      w2: a2,
-    }
-  }
+    const els = Object.fromEntries([
+      "tabSim", "tabFrac", "tabMap", "simControls", "fractalControls", "mapControls", "simStage", "fractalStage", "mapStage",
+      "simCanvas", "fractalCanvas", "mapCanvas", "presetSelect", "applyPreset", "resetSim", "theta1", "theta1Num", "theta2", "theta2Num",
+      "omega1", "omega1Num", "omega2", "omega2Num", "playPause", "clearTrail", "showTrail", "trailLen", "trailLenNum",
+      "speed", "speedNum", "steps", "stepsNum", "rTheta1", "rTheta2", "rOmega1", "rOmega2", "energyReadout",
+      "renderFractal", "resetZoomFrac", "useFractalPoint", "exportFractal", "fracResolution", "fracTime", "fracTimeNum", "fracThresh", "fracThreshNum", "fracBar", "fracT1", "fracT2", "fracView",
+      "renderMap", "sendMapToSim", "exportMap", "mapMode", "mapResolution", "mapBar", "mapT1", "mapT2", "mapInfo"
+    ].map(id => [id, document.getElementById(id)]));
 
-  const add = (a, b, scale = 1) => ({
-    t1: a.t1 + b.t1 * scale,
-    t2: a.t2 + b.t2 * scale,
-    w1: a.w1 + b.w1 * scale,
-    w2: a.w2 + b.w2 * scale,
-  })
+    const ctx = els.simCanvas.getContext("2d");
+    const fctx = els.fractalCanvas.getContext("2d", { willReadFrequently: true });
+    const mctx = els.mapCanvas.getContext("2d", { willReadFrequently: true });
 
-  const k1 = derivs(state)
-  const k2 = derivs(add(state, k1, dt / 2))
-  const k3 = derivs(add(state, k2, dt / 2))
-  const k4 = derivs(add(state, k3, dt))
+    let mode = "sim";
+    let fractalView = { minT1: -Math.PI, maxT1: Math.PI, minT2: -Math.PI, maxT2: Math.PI };
+    let mapSelection = null;
+    let fractalSelection = null;
+    let fracDrag = null;
+    let fracImageCanvas = null;
+    let mapImageCanvas = null;
 
-  return {
-    t1: state.t1 + (dt / 6) * (k1.t1 + 2 * k2.t1 + 2 * k3.t1 + k4.t1),
-    t2: state.t2 + (dt / 6) * (k1.t2 + 2 * k2.t2 + 2 * k3.t2 + k4.t2),
-    w1: state.w1 + (dt / 6) * (k1.w1 + 2 * k2.w1 + 2 * k3.w1 + k4.w1),
-    w2: state.w2 + (dt / 6) * (k1.w2 + 2 * k2.w2 + 2 * k3.w2 + k4.w2),
-  }
-}
-
-function generateFractal(ctx, width, height, params) {
-  const image = ctx.createImageData(width, height)
-
-  for (let x = 0; x < width; x++) {
-    for (let y = 0; y < height; y++) {
-      const theta1 = (x / width) * Math.PI * 2
-      const theta2 = (y / height) * Math.PI * 2
-
-      let state = {
-        t1: theta1,
-        t2: theta2,
-        w1: params.omega1,
-        w2: params.omega2,
+    function resizeCanvas(canvas) {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+      const w = Math.max(300, Math.round(rect.width * dpr));
+      const h = Math.max(300, Math.round(rect.height * dpr));
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
       }
-
-      let divergence = 0
-
-      for (let i = 0; i < 60; i++) {
-        state = rk4Step(state, params, 0.02)
-        divergence += Math.abs(state.w1 - state.w2)
-      }
-
-      const idx = (y * width + x) * 4
-
-      const c = Math.min(255, divergence * 2)
-
-      image.data[idx] = c
-      image.data[idx + 1] = 255 - c
-      image.data[idx + 2] = 255
-      image.data[idx + 3] = 255
-    }
-  }
-
-  ctx.putImageData(image, 0, 0)
-}
-
-export default function DoublePendulumFractalLab() {
-  const canvasRef = useRef(null)
-  const fractalRef = useRef(null)
-
-  const [running, setRunning] = useState(true)
-  const [showTrail, setShowTrail] = useState(true)
-  const [showFractal, setShowFractal] = useState(true)
-  const [zoom, setZoom] = useState(1)
-
-  const [theta1, setTheta1] = useState(presets.classical.theta1)
-  const [theta2, setTheta2] = useState(presets.classical.theta2)
-  const [omega1, setOmega1] = useState(presets.classical.omega1)
-  const [omega2, setOmega2] = useState(presets.classical.omega2)
-
-  const [m1, setM1] = useState(1)
-  const [m2, setM2] = useState(1)
-  const [l1, setL1] = useState(1)
-  const [l2, setL2] = useState(1)
-  const [g, setG] = useState(9.81)
-  const [damping, setDamping] = useState(0.001)
-
-  const params = useMemo(
-    () => ({
-      theta1,
-      theta2,
-      omega1,
-      omega2,
-      m1,
-      m2,
-      l1,
-      l2,
-      g,
-      damping,
-    }),
-    [theta1, theta2, omega1, omega2, m1, m2, l1, l2, g, damping]
-  )
-
-  const stateRef = useRef({
-    t1: theta1,
-    t2: theta2,
-    w1: omega1,
-    w2: omega2,
-  })
-
-  const trailRef = useRef([])
-
-  useEffect(() => {
-    stateRef.current = {
-      t1: theta1,
-      t2: theta2,
-      w1: omega1,
-      w2: omega2,
-    }
-  }, [theta1, theta2, omega1, omega2])
-
-  useEffect(() => {
-    const canvas = canvasRef.current
-    const ctx = canvas.getContext('2d')
-
-    canvas.width = 1000
-    canvas.height = 800
-
-    let animation
-
-    const render = () => {
-      ctx.fillStyle = 'rgba(0,0,0,0.08)'
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-      const cx = canvas.width / 2
-      const cy = 180
-
-      if (running) {
-        stateRef.current = rk4Step(stateRef.current, params, 0.015)
-      }
-
-      const s = stateRef.current
-
-      const scale = 180 * zoom
-
-      const x1 = cx + Math.sin(s.t1) * l1 * scale
-      const y1 = cy + Math.cos(s.t1) * l1 * scale
-
-      const x2 = x1 + Math.sin(s.t2) * l2 * scale
-      const y2 = y1 + Math.cos(s.t2) * l2 * scale
-
-      if (showTrail) {
-        trailRef.current.push([x2, y2])
-        if (trailRef.current.length > 2500) trailRef.current.shift()
-
-        ctx.beginPath()
-        trailRef.current.forEach((p, i) => {
-          if (i === 0) ctx.moveTo(p[0], p[1])
-          else ctx.lineTo(p[0], p[1])
-        })
-
-        ctx.strokeStyle = 'rgba(0,212,255,0.4)'
-        ctx.lineWidth = 1.2
-        ctx.stroke()
-      }
-
-      ctx.beginPath()
-      ctx.moveTo(cx, cy)
-      ctx.lineTo(x1, y1)
-      ctx.lineTo(x2, y2)
-      ctx.strokeStyle = '#ffffff'
-      ctx.lineWidth = 2
-      ctx.stroke()
-
-      ctx.beginPath()
-      ctx.arc(x1, y1, m1 * 10, 0, Math.PI * 2)
-      ctx.fillStyle = '#00d4ff'
-      ctx.fill()
-
-      ctx.beginPath()
-      ctx.arc(x2, y2, m2 * 10, 0, Math.PI * 2)
-      ctx.fillStyle = '#ff6b35'
-      ctx.fill()
-
-      animation = requestAnimationFrame(render)
     }
 
-    render()
+    function resizeAll() {
+      [els.simCanvas, els.fractalCanvas, els.mapCanvas].forEach(resizeCanvas);
+      drawFractalOverlay();
+      drawMapAxes();
+    }
+    window.addEventListener("resize", resizeAll);
 
-    return () => cancelAnimationFrame(animation)
-  }, [params, running, showTrail, zoom, l1, l2, m1, m2])
+    function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+    function wrapPi(a) { return ((a + Math.PI) % TAU + TAU) % TAU - Math.PI; }
+    function fmtDeg(rad, digits = 3) { return (wrapPi(rad) * RAD).toFixed(digits) + "°"; }
+    function fmt(v, digits = 4) { return Number(v).toFixed(digits); }
 
-  useEffect(() => {
-    if (!showFractal) return
+    function deriv(s) {
+      const { theta1, theta2, omega1, omega2 } = s;
+      const { m1, m2, L1, L2, g } = params;
+      const delta = theta2 - theta1;
+      const den1 = (m1 + m2) * L1 - m2 * L1 * Math.cos(delta) * Math.cos(delta);
+      const den2 = (L2 / L1) * den1;
+      const a1 = (
+        m2 * L1 * omega1 * omega1 * Math.sin(delta) * Math.cos(delta) +
+        m2 * g * Math.sin(theta2) * Math.cos(delta) +
+        m2 * L2 * omega2 * omega2 * Math.sin(delta) -
+        (m1 + m2) * g * Math.sin(theta1)
+      ) / den1;
+      const a2 = (
+        -m2 * L2 * omega2 * omega2 * Math.sin(delta) * Math.cos(delta) +
+        (m1 + m2) * (g * Math.sin(theta1) * Math.cos(delta) - L1 * omega1 * omega1 * Math.sin(delta) - g * Math.sin(theta2))
+      ) / den2;
+      return { theta1: omega1, theta2: omega2, omega1: a1, omega2: a2 };
+    }
 
-    const canvas = fractalRef.current
-    const ctx = canvas.getContext('2d')
+    function addScaled(s, k, h) {
+      return {
+        theta1: s.theta1 + k.theta1 * h,
+        theta2: s.theta2 + k.theta2 * h,
+        omega1: s.omega1 + k.omega1 * h,
+        omega2: s.omega2 + k.omega2 * h
+      };
+    }
 
-    canvas.width = 450
-    canvas.height = 450
+    function rk4(s, dt) {
+      const k1 = deriv(s);
+      const k2 = deriv(addScaled(s, k1, dt / 2));
+      const k3 = deriv(addScaled(s, k2, dt / 2));
+      const k4 = deriv(addScaled(s, k3, dt));
+      return {
+        theta1: s.theta1 + dt / 6 * (k1.theta1 + 2 * k2.theta1 + 2 * k3.theta1 + k4.theta1),
+        theta2: s.theta2 + dt / 6 * (k1.theta2 + 2 * k2.theta2 + 2 * k3.theta2 + k4.theta2),
+        omega1: s.omega1 + dt / 6 * (k1.omega1 + 2 * k2.omega1 + 2 * k3.omega1 + k4.omega1),
+        omega2: s.omega2 + dt / 6 * (k1.omega2 + 2 * k2.omega2 + 2 * k3.omega2 + k4.omega2)
+      };
+    }
 
-    generateFractal(ctx, 450, 450, params)
-  }, [params, showFractal])
+    function energy(s) {
+      const { m1, m2, L1, L2, g } = params;
+      const y1 = -L1 * Math.cos(s.theta1);
+      const y2 = y1 - L2 * Math.cos(s.theta2);
+      const v1sq = L1 * L1 * s.omega1 * s.omega1;
+      const v2sq = v1sq + L2 * L2 * s.omega2 * s.omega2 + 2 * L1 * L2 * s.omega1 * s.omega2 * Math.cos(s.theta1 - s.theta2);
+      return 0.5 * m1 * v1sq + 0.5 * m2 * v2sq + m1 * g * y1 + m2 * g * y2;
+    }
 
-  const loadPreset = (preset) => {
-    setTheta1(preset.theta1)
-    setTheta2(preset.theta2)
-    setOmega1(preset.omega1)
-    setOmega2(preset.omega2)
-    trailRef.current = []
-  }
+    function bobPositions(s, canvas) {
+      const W = canvas.width, H = canvas.height;
+      const scale = Math.min(W, H) * 0.245;
+      const cx = W / 2, cy = H * 0.32;
+      const x1 = cx + scale * Math.sin(s.theta1);
+      const y1 = cy + scale * Math.cos(s.theta1);
+      const x2 = x1 + scale * Math.sin(s.theta2);
+      const y2 = y1 + scale * Math.cos(s.theta2);
+      return { cx, cy, x1, y1, x2, y2, scale };
+    }
 
-  return (
-    <div className="bg-black text-slate-200 min-h-screen overflow-hidden flex">
-      <aside className="w-[360px] bg-[#080c10] border-r border-cyan-950/40 overflow-y-auto">
-        <div className="p-6 border-b border-cyan-950/30">
-          <div className="uppercase tracking-[0.3em] text-[10px] font-mono text-cyan-400 mb-3">
-            Quantum Chaos Laboratory
-          </div>
+    function simulateStep(dt) {
+      const steps = Number(els.steps.value);
+      const speed = Number(els.speed.value);
+      const h = dt * speed / steps;
+      for (let i = 0; i < steps; i++) {
+        const ns = rk4(state, h);
+        state.theta1 = ns.theta1;
+        state.theta2 = ns.theta2;
+        state.omega1 = ns.omega1;
+        state.omega2 = ns.omega2;
+      }
+      const p = bobPositions(state, els.simCanvas);
+      state.trail.push({ x: p.x2, y: p.y2 });
+      const max = Number(els.trailLen.value);
+      if (state.trail.length > max) state.trail.splice(0, state.trail.length - max);
+    }
 
-          <h1 className="text-3xl font-bold mb-3 leading-tight">
-            Double Pendulum Fractal Engine
-          </h1>
+    function drawSimulation() {
+      resizeCanvas(els.simCanvas);
+      const W = els.simCanvas.width, H = els.simCanvas.height;
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = "rgba(4,8,18,.88)";
+      ctx.fillRect(0, 0, W, H);
 
-          <p className="text-sm text-slate-500 leading-7 font-mono">
-            Simulatore scientifico avanzato del doppio pendolo caotico con spazio delle fasi,
-            rendering frattale, studio delle condizioni iniziali e identificazione delle isole di stabilità.
-          </p>
-        </div>
+      const p = bobPositions(state, els.simCanvas);
+      if (els.showTrail.checked && state.trail.length > 1) {
+        ctx.lineWidth = Math.max(1, Math.min(W, H) / 620);
+        ctx.beginPath();
+        for (let i = 0; i < state.trail.length; i++) {
+          const q = state.trail[i];
+          if (i === 0) ctx.moveTo(q.x, q.y);
+          else ctx.lineTo(q.x, q.y);
+        }
+        ctx.strokeStyle = "rgba(139,211,255,.42)";
+        ctx.stroke();
+      }
 
-        <div className="p-5 border-b border-cyan-950/30">
-          <div className="flex items-center gap-2 text-cyan-300 mb-4 font-mono text-xs uppercase tracking-[0.2em]">
-            <Sparkles size={14} />
-            Presets
-          </div>
+      ctx.save();
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.strokeStyle = "rgba(245,247,255,.82)";
+      ctx.lineWidth = Math.max(2, Math.min(W, H) / 210);
+      ctx.beginPath();
+      ctx.moveTo(p.cx, p.cy);
+      ctx.lineTo(p.x1, p.y1);
+      ctx.lineTo(p.x2, p.y2);
+      ctx.stroke();
 
-          <div className="grid grid-cols-1 gap-2">
-            {Object.values(presets).map((preset) => (
-              <button
-                key={preset.label}
-                onClick={() => loadPreset(preset)}
-                className="bg-black border border-cyan-950/50 hover:border-cyan-400/60 transition-all rounded-xl p-3 text-left"
-              >
-                <div className="text-sm font-semibold">{preset.label}</div>
-              </button>
-            ))}
-          </div>
-        </div>
+      ctx.strokeStyle = "rgba(139,211,255,.34)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(p.cx, p.cy, p.scale, 0, TAU);
+      ctx.arc(p.x1, p.y1, p.scale, 0, TAU);
+      ctx.stroke();
 
-        <div className="p-5 border-b border-cyan-950/30">
-          <div className="flex items-center gap-2 text-cyan-300 mb-5 font-mono text-xs uppercase tracking-[0.2em]">
-            <Orbit size={14} />
-            Condizioni iniziali
-          </div>
+      drawAbstractNode(p.cx, p.cy, p.scale * .032, "rgba(255,255,255,.72)");
+      drawAbstractNode(p.x1, p.y1, p.scale * .062, "rgba(195,255,139,.9)");
+      drawAbstractNode(p.x2, p.y2, p.scale * .082, "rgba(139,211,255,.95)");
+      ctx.restore();
 
-          <Slider
-            label="Theta 1"
-            value={theta1}
-            setValue={setTheta1}
-            min={-3.14}
-            max={3.14}
-            step={0.01}
-            description="Angolo iniziale del primo braccio. Piccole variazioni modificano drasticamente la traiettoria futura."
-          />
+      ctx.fillStyle = "rgba(255,255,255,.62)";
+      ctx.font = `${Math.max(12, W / 98)}px ui-sans-serif, system-ui`;
+      ctx.fillText("θ₁", p.x1 + 12, p.y1 - 12);
+      ctx.fillText("θ₂", p.x2 + 12, p.y2 - 12);
+    }
 
-          <Slider
-            label="Theta 2"
-            value={theta2}
-            setValue={setTheta2}
-            min={-3.14}
-            max={3.14}
-            step={0.01}
-            description="Angolo iniziale del secondo braccio del sistema dinamico."
-          />
+    function drawAbstractNode(x, y, r, color) {
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, TAU);
+      ctx.fillStyle = "rgba(0,0,0,.35)";
+      ctx.fill();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = Math.max(2, r * .16);
+      ctx.stroke();
+    }
 
-          <Slider
-            label="Omega 1"
-            value={omega1}
-            setValue={setOmega1}
-            min={-5}
-            max={5}
-            step={0.01}
-            description="Velocità angolare iniziale del primo braccio."
-          />
+    function drawBob(x, y, r, color) {
+      drawAbstractNode(x, y, r, color);
+    }
 
-          <Slider
-            label="Omega 2"
-            value={omega2}
-            setValue={setOmega2}
-            min={-5}
-            max={5}
-            step={0.01}
-            description="Velocità angolare iniziale del secondo braccio."
-          />
-        </div>
+    function updateReadouts() {
+      els.rTheta1.textContent = fmtDeg(state.theta1);
+      els.rTheta2.textContent = fmtDeg(state.theta2);
+      els.rOmega1.textContent = fmt(state.omega1, 5) + " rad/s";
+      els.rOmega2.textContent = fmt(state.omega2, 5) + " rad/s";
+      els.energyReadout.textContent = "Energia: " + fmt(energy(state), 4);
+    }
 
-        <div className="p-5 border-b border-cyan-950/30">
-          <div className="flex items-center gap-2 text-orange-300 mb-5 font-mono text-xs uppercase tracking-[0.2em]">
-            <Waves size={14} />
-            Parametri fisici
-          </div>
+    function loop(now) {
+      const rawDt = Math.min(0.035, (now - state.lastTime) / 1000 || 0.016);
+      state.lastTime = now;
+      if (mode === "sim" && state.running && !state.dragging) simulateStep(rawDt);
+      if (mode === "sim") {
+        drawSimulation();
+        updateReadouts();
+      }
+      requestAnimationFrame(loop);
+    }
 
-          <Slider
-            label="Massa 1"
-            value={m1}
-            setValue={setM1}
-            min={0.2}
-            max={5}
-            step={0.01}
-            description="Massa del primo corpo. Influenza l'energia del sistema."
-          />
+    function setMode(next) {
+      mode = next;
+      for (const [tab, active] of [[els.tabSim, next === "sim"], [els.tabFrac, next === "fractal"], [els.tabMap, next === "map"]]) tab.classList.toggle("active", active);
+      els.simControls.classList.toggle("hidden", next !== "sim");
+      els.fractalControls.classList.toggle("hidden", next !== "fractal");
+      els.mapControls.classList.toggle("hidden", next !== "map");
+      els.simStage.classList.toggle("hidden", next !== "sim");
+      els.fractalStage.classList.toggle("hidden", next !== "fractal");
+      els.mapStage.classList.toggle("hidden", next !== "map");
+      resizeAll();
+      if (next === "fractal") drawFractalOverlay();
+      if (next === "map") drawMapAxes();
+    }
 
-          <Slider
-            label="Massa 2"
-            value={m2}
-            setValue={setM2}
-            min={0.2}
-            max={5}
-            step={0.01}
-            description="Massa del secondo corpo del pendolo doppio."
-          />
+    function syncPair(rangeId, numId, onChange) {
+      const a = els[rangeId], b = els[numId];
+      const update = src => {
+        const val = Number(src.value);
+        if (src === a) b.value = val;
+        else a.value = val;
+        onChange(val);
+      };
+      a.addEventListener("input", () => update(a));
+      b.addEventListener("input", () => update(b));
+    }
 
-          <Slider
-            label="Lunghezza 1"
-            value={l1}
-            setValue={setL1}
-            min={0.4}
-            max={2}
-            step={0.01}
-            description="Lunghezza del primo braccio del pendolo."
-          />
+    function setInitialFromControls() {
+      state.initial.theta1 = Number(els.theta1.value) * DEG;
+      state.initial.theta2 = Number(els.theta2.value) * DEG;
+      state.initial.omega1 = Number(els.omega1.value);
+      state.initial.omega2 = Number(els.omega2.value);
+    }
 
-          <Slider
-            label="Lunghezza 2"
-            value={l2}
-            setValue={setL2}
-            min={0.4}
-            max={2}
-            step={0.01}
-            description="Lunghezza del secondo braccio."
-          />
+    function applyInitialToState(clear = true) {
+      state.theta1 = state.initial.theta1;
+      state.theta2 = state.initial.theta2;
+      state.omega1 = state.initial.omega1;
+      state.omega2 = state.initial.omega2;
+      if (clear) state.trail = [];
+    }
 
-          <Slider
-            label="Gravità"
-            value={g}
-            setValue={setG}
-            min={0}
-            max={20}
-            step={0.01}
-            description="Campo gravitazionale applicato al sistema."
-          />
+    function setControls(t1Deg, t2Deg, w1 = 0, w2 = 0) {
+      const vals = { theta1: t1Deg, theta1Num: t1Deg, theta2: t2Deg, theta2Num: t2Deg, omega1: w1, omega1Num: w1, omega2: w2, omega2Num: w2 };
+      for (const [id, val] of Object.entries(vals)) els[id].value = Number(val).toFixed(id.includes("theta") ? 3 : 4).replace(/\.0+$/, "");
+      setInitialFromControls();
+      applyInitialToState(true);
+    }
 
-          <Slider
-            label="Attrito"
-            value={damping}
-            setValue={setDamping}
-            min={0}
-            max={0.05}
-            step={0.0001}
-            description="Smorzamento energetico del sistema dinamico."
-          />
-        </div>
+    function populatePresets() {
+      els.presetSelect.innerHTML = presets.map((p, i) => `<option value="${i}">${p.name}</option>`).join("");
+    }
 
-        <div className="p-5 space-y-4">
-          {sidebarInfo.map((info) => (
-            <div
-              key={info.title}
-              className="bg-cyan-500/5 border border-cyan-500/10 rounded-2xl p-4"
-            >
-              <div className="font-semibold text-white mb-2">{info.title}</div>
-              <div className="text-xs text-slate-500 leading-6 font-mono">
-                {info.description}
-              </div>
-            </div>
-          ))}
-        </div>
-      </aside>
+    function initControls() {
+      populatePresets();
+      syncPair("theta1", "theta1Num", v => { state.initial.theta1 = v * DEG; applyInitialToState(true); });
+      syncPair("theta2", "theta2Num", v => { state.initial.theta2 = v * DEG; applyInitialToState(true); });
+      syncPair("omega1", "omega1Num", v => { state.initial.omega1 = v; applyInitialToState(true); });
+      syncPair("omega2", "omega2Num", v => { state.initial.omega2 = v; applyInitialToState(true); });
+      syncPair("trailLen", "trailLenNum", () => {});
+      syncPair("speed", "speedNum", () => {});
+      syncPair("steps", "stepsNum", () => {});
+      syncPair("fracTime", "fracTimeNum", () => {});
+      syncPair("fracThresh", "fracThreshNum", () => {});
 
-      <main className="flex-1 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,212,255,0.08),transparent_60%)]" />
+      els.tabSim.addEventListener("click", () => setMode("sim"));
+      els.tabFrac.addEventListener("click", () => setMode("fractal"));
+      els.tabMap.addEventListener("click", () => setMode("map"));
+      els.applyPreset.addEventListener("click", () => {
+        const p = presets[Number(els.presetSelect.value)];
+        setControls(p.t1, p.t2, p.w1, p.w2);
+      });
+      els.resetSim.addEventListener("click", () => applyInitialToState(true));
+      els.playPause.addEventListener("click", () => {
+        state.running = !state.running;
+        els.playPause.textContent = state.running ? "Pausa" : "Riprendi";
+      });
+      els.clearTrail.addEventListener("click", () => state.trail = []);
+      els.renderFractal.addEventListener("click", renderFractal);
+      els.resetZoomFrac.addEventListener("click", () => { fractalView = { minT1: -Math.PI, maxT1: Math.PI, minT2: -Math.PI, maxT2: Math.PI }; fractalSelection = null; renderFractal(); });
+      els.useFractalPoint.addEventListener("click", () => { if (fractalSelection) sendAnglesToSim(fractalSelection.t1, fractalSelection.t2); });
+      els.exportFractal.addEventListener("click", () => exportCanvas(els.fractalCanvas, "frattale-doppio-pendolo.png"));
+      els.renderMap.addEventListener("click", renderMap);
+      els.sendMapToSim.addEventListener("click", () => { if (mapSelection) sendAnglesToSim(mapSelection.t1, mapSelection.t2); });
+      els.exportMap.addEventListener("click", () => exportCanvas(els.mapCanvas, "grafico-angoli-doppio-pendolo.png"));
+      els.mapMode.addEventListener("change", renderMap);
+    }
 
-        <div className="relative z-10 p-6 h-full flex flex-col gap-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-xs uppercase tracking-[0.25em] text-cyan-400 font-mono mb-2">
-                Real Time Simulation
-              </div>
-              <div className="text-3xl font-bold">Chaos & Stability Explorer</div>
-            </div>
+    function pointerToCanvas(e, canvas) {
+      const r = canvas.getBoundingClientRect();
+      const sx = canvas.width / r.width;
+      const sy = canvas.height / r.height;
+      return { x: (e.clientX - r.left) * sx, y: (e.clientY - r.top) * sy, cssX: e.clientX - r.left, cssY: e.clientY - r.top };
+    }
 
-            <div className="flex gap-3">
-              <button
-                onClick={() => setRunning(!running)}
-                className="bg-cyan-500/10 border border-cyan-400/30 hover:border-cyan-300 px-4 py-3 rounded-2xl"
-              >
-                {running ? <Pause /> : <Play />}
-              </button>
+    function initDragging() {
+      els.simCanvas.addEventListener("pointerdown", e => {
+        const p = pointerToCanvas(e, els.simCanvas);
+        const b = bobPositions(state, els.simCanvas);
+        const d1 = Math.hypot(p.x - b.x1, p.y - b.y1);
+        const d2 = Math.hypot(p.x - b.x2, p.y - b.y2);
+        if (d1 < b.scale * .16 || d2 < b.scale * .18) {
+          state.dragging = d2 < d1 ? "bob2" : "bob1";
+          state.running = false;
+          els.playPause.textContent = "Riprendi";
+          els.simCanvas.setPointerCapture(e.pointerId);
+        }
+      });
+      els.simCanvas.addEventListener("pointermove", e => {
+        if (!state.dragging) return;
+        const p = pointerToCanvas(e, els.simCanvas);
+        const b = bobPositions(state, els.simCanvas);
+        if (state.dragging === "bob1") {
+          const angle = Math.atan2(p.x - b.cx, p.y - b.cy);
+          state.theta1 = angle;
+          state.initial.theta1 = angle;
+          els.theta1.value = (angle * RAD).toFixed(3);
+          els.theta1Num.value = (angle * RAD).toFixed(3);
+        } else {
+          const angle = Math.atan2(p.x - b.x1, p.y - b.y1);
+          state.theta2 = angle;
+          state.initial.theta2 = angle;
+          els.theta2.value = (angle * RAD).toFixed(3);
+          els.theta2Num.value = (angle * RAD).toFixed(3);
+        }
+        state.omega1 = state.omega2 = state.initial.omega1 = state.initial.omega2 = 0;
+        els.omega1.value = els.omega1Num.value = 0;
+        els.omega2.value = els.omega2Num.value = 0;
+        state.trail = [];
+      });
+      els.simCanvas.addEventListener("pointerup", e => { state.dragging = null; try { els.simCanvas.releasePointerCapture(e.pointerId); } catch {} });
+      els.simCanvas.addEventListener("pointercancel", () => state.dragging = null);
+    }
 
-              <button
-                onClick={() => {
-                  trailRef.current = []
-                  stateRef.current = {
-                    t1: theta1,
-                    t2: theta2,
-                    w1: omega1,
-                    w2: omega2,
-                  }
-                }}
-                className="bg-orange-500/10 border border-orange-400/30 hover:border-orange-300 px-4 py-3 rounded-2xl"
-              >
-                <RotateCcw />
-              </button>
-            </div>
-          </div>
+    function stabilityScore(t1, t2, totalTime, threshold) {
+      let s = { theta1: t1, theta2: t2, omega1: 0, omega2: 0 };
+      const dt = 0.035;
+      let maxW = 0;
+      let flips = 0;
+      let smooth = 0;
+      let prev1 = s.theta1, prev2 = s.theta2;
+      const n = Math.max(8, Math.floor(totalTime / dt));
+      for (let i = 0; i < n; i++) {
+        s = rk4(s, dt);
+        const w = Math.max(Math.abs(s.omega1), Math.abs(s.omega2));
+        maxW = Math.max(maxW, w);
+        if (Math.abs(s.theta1 - prev1) > Math.PI) flips++;
+        if (Math.abs(s.theta2 - prev2) > Math.PI) flips++;
+        smooth += Math.abs(wrapPi(s.theta1)) + Math.abs(wrapPi(s.theta2)) + .3 * w;
+        prev1 = s.theta1;
+        prev2 = s.theta2;
+        if (maxW > threshold * 2.4 || flips > 1) break;
+      }
+      const calm = 1 - clamp(maxW / threshold, 0, 1);
+      const noFlip = flips === 0 ? 1 : 0;
+      const centered = 1 - clamp(smooth / n / 6, 0, 1);
+      return clamp(0.48 * calm + 0.38 * noFlip + 0.14 * centered, 0, 1);
+    }
 
-          <div className="grid grid-cols-3 gap-5 flex-1 min-h-0">
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="col-span-2 bg-[#080c10]/90 border border-cyan-950/30 rounded-3xl overflow-hidden relative"
-            >
-              <div className="absolute top-4 left-4 z-10 flex gap-2">
-                <button
-                  onClick={() => setShowTrail(!showTrail)}
-                  className="bg-black/50 border border-cyan-400/20 px-3 py-2 rounded-xl text-xs flex items-center gap-2"
-                >
-                  <Eye size={14} />
-                  Trail
-                </button>
+    function renderChunked(size, calcPixel, targetCtx, bar, done, partial) {
+      const image = targetCtx.createImageData(size, size);
+      const off = document.createElement("canvas");
+      off.width = size;
+      off.height = size;
+      const offCtx = off.getContext("2d");
+      let y = 0;
+      bar.style.width = "0%";
 
-                <button
-                  onClick={() => setZoom((z) => Math.min(2.5, z + 0.1))}
-                  className="bg-black/50 border border-cyan-400/20 px-3 py-2 rounded-xl text-xs flex items-center gap-2"
-                >
-                  <ZoomIn size={14} />
-                  Zoom
-                </button>
-              </div>
+      function paintPartial() {
+        offCtx.putImageData(image, 0, 0);
+        targetCtx.clearRect(0, 0, targetCtx.canvas.width, targetCtx.canvas.height);
+        targetCtx.imageSmoothingEnabled = false;
+        targetCtx.drawImage(off, 0, 0, targetCtx.canvas.width, targetCtx.canvas.height);
+        if (partial) partial(off, y / size);
+      }
 
-              <canvas ref={canvasRef} className="w-full h-full" />
-            </motion.div>
+      function chunk() {
+        const start = performance.now();
+        while (y < size && performance.now() - start < 28) {
+          for (let x = 0; x < size; x++) {
+            const [r, g, b, a] = calcPixel(x, y, size);
+            const i = (y * size + x) * 4;
+            image.data[i] = r; image.data[i + 1] = g; image.data[i + 2] = b; image.data[i + 3] = a;
+          }
+          y++;
+        }
+        bar.style.width = `${Math.round(y / size * 100)}%`;
+        paintPartial();
+        if (y < size) requestAnimationFrame(chunk);
+        else done(off);
+      }
+      requestAnimationFrame(chunk);
+    }
 
-            <div className="flex flex-col gap-5 overflow-auto">
-              <div className="bg-[#080c10]/90 border border-cyan-950/30 rounded-3xl p-4">
-                <div className="flex items-center gap-2 text-cyan-300 font-mono text-xs uppercase tracking-[0.2em] mb-4">
-                  <BrainCircuit size={14} />
-                  Stability Fractal
-                </div>
+    function fractalColor(stability) {
+      const chaos = 1 - clamp(stability, 0, 1);
+      const v = Math.log1p(28 * chaos) / Math.log1p(28);
+      if (stability > .985) return [0, 0, 0, 255];
+      const r = Math.round(12 + 243 * v);
+      const g = Math.round(18 + 224 * Math.pow(v, .78));
+      const b = Math.round(36 + 155 * (1 - v));
+      return [r, g, b, 255];
+    }
 
-                <div className="text-xs text-slate-500 leading-6 mb-4 font-mono">
-                  Le regioni più fredde rappresentano traiettorie relativamente stabili. Le regioni luminose indicano divergenza caotica elevata.
-                </div>
+    function renderFractal() {
+      setMode("fractal");
+      resizeCanvas(els.fractalCanvas);
+      const size = Number(els.fracResolution.value);
+      const totalTime = Number(els.fracTime.value);
+      const threshold = Number(els.fracThresh.value);
+      renderChunked(size, (x, y, n) => {
+        const t1 = fractalView.minT1 + (x / (n - 1)) * (fractalView.maxT1 - fractalView.minT1);
+        const t2 = fractalView.maxT2 - (y / (n - 1)) * (fractalView.maxT2 - fractalView.minT2);
+        const st = stabilityScore(t1, t2, totalTime, threshold);
+        return fractalColor(st);
+      }, fctx, els.fracBar, off => {
+        fracImageCanvas = off;
+        drawFractalOverlay();
+      }, off => {
+        fracImageCanvas = off;
+        drawFractalOverlay();
+      });
+    }
 
-                <canvas
-                  ref={fractalRef}
-                  className="rounded-2xl border border-cyan-950/40 w-full aspect-square"
-                />
-              </div>
+    function drawFractalOverlay() {
+      if (mode !== "fractal") return;
+      const W = els.fractalCanvas.width, H = els.fractalCanvas.height;
+      fctx.clearRect(0, 0, W, H);
+      if (fracImageCanvas) {
+        fctx.imageSmoothingEnabled = false;
+        fctx.drawImage(fracImageCanvas, 0, 0, W, H);
+      } else {
+        fctx.fillStyle = "rgba(5,8,18,.92)";
+        fctx.fillRect(0, 0, W, H);
+      }
+      fctx.save();
+      fctx.strokeStyle = "rgba(139,211,255,.55)";
+      fctx.lineWidth = Math.max(1, W / 900);
+      fctx.beginPath();
+      fctx.moveTo(0, H / 2); fctx.lineTo(W, H / 2);
+      fctx.moveTo(W / 2, 0); fctx.lineTo(W / 2, H);
+      fctx.stroke();
+      fctx.fillStyle = "rgba(255,255,255,.78)";
+      fctx.font = `${Math.max(12, W / 90)}px ui-sans-serif, system-ui`;
+      fctx.fillText("θ₁", W - 34, H / 2 - 10);
+      fctx.fillText("θ₂", W / 2 + 10, 24);
 
-              <div className="bg-[#080c10]/90 border border-purple-950/30 rounded-3xl p-5">
-                <div className="flex items-center gap-2 text-purple-300 font-mono text-xs uppercase tracking-[0.2em] mb-4">
-                  <Activity size={14} />
-                  Chaos Metrics
-                </div>
+      if (fractalSelection) {
+        const x = (fractalSelection.t1 - fractalView.minT1) / (fractalView.maxT1 - fractalView.minT1) * W;
+        const y = (fractalView.maxT2 - fractalSelection.t2) / (fractalView.maxT2 - fractalView.minT2) * H;
+        fctx.strokeStyle = "rgba(255,255,255,.95)";
+        fctx.lineWidth = Math.max(2, W / 520);
+        fctx.beginPath();
+        fctx.arc(x, y, Math.max(7, W / 95), 0, TAU);
+        fctx.stroke();
+      }
 
-                <div className="space-y-4 text-sm">
-                  <div className="flex justify-between border-b border-slate-800 pb-2">
-                    <span className="text-slate-500">Energia stimata</span>
-                    <span className="text-cyan-300 font-mono">
-                      {((m1 + m2) * g).toFixed(2)}
-                    </span>
-                  </div>
+      if (fracDrag && fracDrag.end && fracDrag.moved) {
+        const x = Math.min(fracDrag.start.x, fracDrag.end.x);
+        const y = Math.min(fracDrag.start.y, fracDrag.end.y);
+        const w = Math.abs(fracDrag.end.x - fracDrag.start.x);
+        const h = Math.abs(fracDrag.end.y - fracDrag.start.y);
+        fctx.fillStyle = "rgba(139,211,255,.12)";
+        fctx.strokeStyle = "rgba(139,211,255,.9)";
+        fctx.lineWidth = Math.max(2, W / 620);
+        fctx.fillRect(x, y, w, h);
+        fctx.strokeRect(x, y, w, h);
+      }
+      fctx.restore();
+      els.fracView.textContent = `θ₁ ∈ [${(fractalView.minT1*RAD).toFixed(1)}°, ${(fractalView.maxT1*RAD).toFixed(1)}°] · θ₂ ∈ [${(fractalView.minT2*RAD).toFixed(1)}°, ${(fractalView.maxT2*RAD).toFixed(1)}°]`;
+    }
 
-                  <div className="flex justify-between border-b border-slate-800 pb-2">
-                    <span className="text-slate-500">Divergenza</span>
-                    <span className="text-orange-300 font-mono">
-                      {(Math.abs(omega1 - omega2) * 10).toFixed(2)}
-                    </span>
-                  </div>
+    function canvasToAngles(p, canvas, view = { minT1: -Math.PI, maxT1: Math.PI, minT2: -Math.PI, maxT2: Math.PI }) {
+      const t1 = view.minT1 + (p.x / canvas.width) * (view.maxT1 - view.minT1);
+      const t2 = view.maxT2 - (p.y / canvas.height) * (view.maxT2 - view.minT2);
+      return { t1, t2 };
+    }
 
-                  <div className="flex justify-between border-b border-slate-800 pb-2">
-                    <span className="text-slate-500">Stabilità</span>
-                    <span className="text-purple-300 font-mono">
-                      {(1 / (1 + Math.abs(omega1 - omega2))).toFixed(3)}
-                    </span>
-                  </div>
-                </div>
-              </div>
+    function sendAnglesToSim(t1, t2) {
+      setControls(t1 * RAD, t2 * RAD, 0, 0);
+      setMode("sim");
+      state.running = true;
+      els.playPause.textContent = "Pausa";
+    }
 
-              <div className="bg-[#080c10]/90 border border-orange-950/30 rounded-3xl p-5">
-                <div className="flex items-center gap-2 text-orange-300 font-mono text-xs uppercase tracking-[0.2em] mb-4">
-                  <Download size={14} />
-                  Export & Research
-                </div>
+    function initFractalEvents() {
+      els.fractalCanvas.addEventListener("pointermove", e => {
+        const p = pointerToCanvas(e, els.fractalCanvas);
+        const a = canvasToAngles(p, els.fractalCanvas, fractalView);
+        els.fracT1.textContent = fmtDeg(a.t1, 2);
+        els.fracT2.textContent = fmtDeg(a.t2, 2);
+        if (fracDrag) {
+          fracDrag.end = p;
+          fracDrag.moved = Math.hypot(fracDrag.end.x - fracDrag.start.x, fracDrag.end.y - fracDrag.start.y) > 8;
+          drawFractalOverlay();
+        }
+      });
+      els.fractalCanvas.addEventListener("pointerdown", e => {
+        fracDrag = { start: pointerToCanvas(e, els.fractalCanvas), end: null, moved: false };
+        els.fractalCanvas.setPointerCapture(e.pointerId);
+      });
+      els.fractalCanvas.addEventListener("pointerup", e => {
+        if (!fracDrag) return;
+        const end = fracDrag.end || pointerToCanvas(e, els.fractalCanvas);
+        fracDrag.end = end;
+        fracDrag.moved = Math.hypot(end.x - fracDrag.start.x, end.y - fracDrag.start.y) > 8;
+        if (fracDrag.moved) {
+          const a = canvasToAngles(fracDrag.start, els.fractalCanvas, fractalView);
+          const b = canvasToAngles(end, els.fractalCanvas, fractalView);
+          fractalView = {
+            minT1: Math.min(a.t1, b.t1), maxT1: Math.max(a.t1, b.t1),
+            minT2: Math.min(a.t2, b.t2), maxT2: Math.max(a.t2, b.t2)
+          };
+          fracDrag = null;
+          renderFractal();
+        } else {
+          fractalSelection = canvasToAngles(fracDrag.start, els.fractalCanvas, fractalView);
+          els.fracT1.textContent = fmtDeg(fractalSelection.t1, 3);
+          els.fracT2.textContent = fmtDeg(fractalSelection.t2, 3);
+          fracDrag = null;
+          drawFractalOverlay();
+        }
+        try { els.fractalCanvas.releasePointerCapture(e.pointerId); } catch {}
+      });
+      els.fractalCanvas.addEventListener("wheel", e => {
+        e.preventDefault();
+        const p = pointerToCanvas(e, els.fractalCanvas);
+        const center = canvasToAngles(p, els.fractalCanvas, fractalView);
+        const factor = e.deltaY < 0 ? 0.78 : 1.28;
+        const w = (fractalView.maxT1 - fractalView.minT1) * factor;
+        const h = (fractalView.maxT2 - fractalView.minT2) * factor;
+        fractalView.minT1 = center.t1 - w * (p.x / els.fractalCanvas.width);
+        fractalView.maxT1 = fractalView.minT1 + w;
+        fractalView.maxT2 = center.t2 + h * (p.y / els.fractalCanvas.height);
+        fractalView.minT2 = fractalView.maxT2 - h;
+        renderFractal();
+      }, { passive: false });
+    }
 
-                <div className="text-xs text-slate-500 leading-6 mb-4 font-mono">
-                  Salva configurazioni, genera dataset per ricerca scientifica ed esporta immagini ad alta risoluzione dei frattali.
-                </div>
+    function exportCanvas(canvas, filename) {
+      const a = document.createElement("a");
+      a.href = canvas.toDataURL("image/png");
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
 
-                <div className="grid grid-cols-1 gap-2">
-                  <button className="bg-cyan-500/10 border border-cyan-400/20 hover:border-cyan-400 rounded-xl py-3 text-sm transition-all">
-                    Export PNG Fractal
-                  </button>
+    function firstFlipTime(t1, t2, total = 10) {
+      let s = { theta1: t1, theta2: t2, omega1: 0, omega2: 0 };
+      const dt = 0.04;
+      let prev1 = s.theta1, prev2 = s.theta2;
+      for (let t = 0; t < total; t += dt) {
+        s = rk4(s, dt);
+        if (Math.abs(s.theta1 - prev1) > Math.PI || Math.abs(s.theta2 - prev2) > Math.PI || Math.abs(s.omega1) > 18 || Math.abs(s.omega2) > 18) return t;
+        prev1 = s.theta1; prev2 = s.theta2;
+      }
+      return total;
+    }
 
-                  <button className="bg-purple-500/10 border border-purple-400/20 hover:border-purple-400 rounded-xl py-3 text-sm transition-all">
-                    Save Simulation State
-                  </button>
+    function normalizedInitialEnergy(t1, t2) {
+      const e = energy({ theta1: t1, theta2: t2, omega1: 0, omega2: 0 });
+      const minE = energy({ theta1: 0, theta2: 0, omega1: 0, omega2: 0 });
+      const maxE = energy({ theta1: Math.PI, theta2: Math.PI, omega1: 0, omega2: 0 });
+      return clamp((e - minE) / (maxE - minE), 0, 1);
+    }
 
-                  <button className="bg-orange-500/10 border border-orange-400/20 hover:border-orange-400 rounded-xl py-3 text-sm transition-all">
-                    Generate Stability Scan
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </main>
-    </div>
-  )
-}
+    function colorRamp(v) {
+      v = clamp(v, 0, 1);
+      const r = Math.round(20 + 235 * v);
+      const g = Math.round(20 + 220 * Math.pow(v, .72));
+      const b = Math.round(26 + 170 * (1 - Math.abs(v - .55)));
+      return [r, g, b, 255];
+    }
+
+    function renderMap() {
+      setMode("map");
+      resizeCanvas(els.mapCanvas);
+      const size = Number(els.mapResolution.value);
+      const type = els.mapMode.value;
+      renderChunked(size, (x, y, n) => {
+        const t1 = -Math.PI + (x / (n - 1)) * TAU;
+        const t2 = Math.PI - (y / (n - 1)) * TAU;
+        let v;
+        if (type === "energy") v = normalizedInitialEnergy(t1, t2);
+        else if (type === "stability") v = stabilityScore(t1, t2, 6, 6);
+        else v = Math.log1p(19 * firstFlipTime(t1, t2, 10) / 10) / Math.log1p(19);
+        return colorRamp(v);
+      }, mctx, els.mapBar, off => {
+        mapImageCanvas = off;
+        drawMapAxes();
+      }, off => {
+        mapImageCanvas = off;
+        drawMapAxes();
+      });
+    }
+
+    function drawMapAxes() {
+      if (mode !== "map") return;
+      const W = els.mapCanvas.width, H = els.mapCanvas.height;
+      mctx.clearRect(0, 0, W, H);
+      if (mapImageCanvas) {
+        mctx.imageSmoothingEnabled = false;
+        mctx.drawImage(mapImageCanvas, 0, 0, W, H);
+      } else {
+        mctx.fillStyle = "rgba(5,8,18,.92)";
+        mctx.fillRect(0, 0, W, H);
+      }
+      mctx.save();
+      mctx.strokeStyle = "rgba(255,255,255,.50)";
+      mctx.lineWidth = Math.max(1, W / 900);
+      mctx.beginPath();
+      mctx.moveTo(0, H / 2); mctx.lineTo(W, H / 2);
+      mctx.moveTo(W / 2, 0); mctx.lineTo(W / 2, H);
+      mctx.stroke();
+      mctx.fillStyle = "rgba(255,255,255,.82)";
+      mctx.font = `${Math.max(12, W / 88)}px ui-sans-serif, system-ui`;
+      mctx.fillText("θ₁ = -180°", 12, H / 2 - 10);
+      mctx.fillText("θ₁ = +180°", W - 110, H / 2 - 10);
+      mctx.fillText("θ₂ = +180°", W / 2 + 12, 24);
+      mctx.fillText("θ₂ = -180°", W / 2 + 12, H - 14);
+      if (mapSelection) {
+        const x = (mapSelection.t1 + Math.PI) / TAU * W;
+        const y = (Math.PI - mapSelection.t2) / TAU * H;
+        mctx.strokeStyle = "rgba(255,255,255,.95)";
+        mctx.lineWidth = Math.max(2, W / 450);
+        mctx.beginPath();
+        mctx.arc(x, y, Math.max(8, W / 75), 0, TAU);
+        mctx.stroke();
+      }
+      mctx.restore();
+    }
+
+    function initMapEvents() {
+      function choose(e, launch) {
+        const p = pointerToCanvas(e, els.mapCanvas);
+        const a = canvasToAngles(p, els.mapCanvas);
+        mapSelection = a;
+        els.mapT1.textContent = fmtDeg(a.t1, 3);
+        els.mapT2.textContent = fmtDeg(a.t2, 3);
+        els.mapInfo.textContent = `Punto: θ₁ ${fmtDeg(a.t1, 2)}, θ₂ ${fmtDeg(a.t2, 2)}`;
+        drawMapAxes();
+        if (launch) sendAnglesToSim(a.t1, a.t2);
+      }
+      els.mapCanvas.addEventListener("click", e => choose(e, false));
+      els.mapCanvas.addEventListener("dblclick", e => choose(e, true));
+      els.mapCanvas.addEventListener("pointermove", e => {
+        const p = pointerToCanvas(e, els.mapCanvas);
+        const a = canvasToAngles(p, els.mapCanvas);
+        els.mapInfo.textContent = `Puntatore: θ₁ ${fmtDeg(a.t1, 1)}, θ₂ ${fmtDeg(a.t2, 1)}`;
+      });
+    }
+
+    initControls();
+    initDragging();
+    initFractalEvents();
+    initMapEvents();
+    resizeAll();
+    drawSimulation();
+    setTimeout(renderFractal, 200);
+    setTimeout(() => { if (mode === "fractal") setMode("sim"); }, 400);
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
