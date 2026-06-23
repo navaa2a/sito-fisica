@@ -1,32 +1,389 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Simulazioni Fisiche</title>
+
+  <style>
+    :root {
+      --bg: #050605;
+      --panel: rgba(6, 12, 8, .88);
+      --green: #72ff00;
+      --lime: #b7ff1a;
+      --red: #ff2424;
+      --cyan: #00eaff;
+      --violet: #b000ff;
+      --dirty: #44321f;
+      --text: #a6ff73;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 80% 20%, rgba(176,0,255,.28), transparent 28%),
+        radial-gradient(circle at 10% 85%, rgba(255,0,0,.18), transparent 24%),
+        linear-gradient(135deg, #080908, #020302 70%);
+      color: var(--text);
+      font-family: "Courier New", monospace;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        repeating-linear-gradient(0deg, rgba(255,255,255,.03) 0 1px, transparent 1px 4px),
+        repeating-linear-gradient(90deg, rgba(255,0,0,.07) 0 1px, transparent 1px 80px);
+      mix-blend-mode: screen;
+      opacity: .45;
+      z-index: 5;
+    }
+
+    .shell {
+      min-height: 100vh;
+      padding: 18px;
+      display: grid;
+      grid-template-columns: 250px 1fr 300px;
+      gap: 18px;
+      border: 14px ridge #3d3324;
+      box-shadow: inset 0 0 80px #000, 0 0 40px #000;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 2px solid #3b5b24;
+      box-shadow:
+        inset 0 0 30px #000,
+        0 0 18px rgba(114,255,0,.18);
+      position: relative;
+    }
+
+    .panel::after {
+      content: "";
+      position: absolute;
+      inset: -7px;
+      border: 3px groove rgba(120, 60, 40, .8);
+      pointer-events: none;
+      filter: contrast(1.6);
+    }
+
+    aside {
+      padding: 18px;
+    }
+
+    .brand-small {
+      font-size: 1.4rem;
+      color: #111;
+      background: #73816a;
+      padding: 8px;
+      text-shadow: 1px 1px var(--green);
+      margin-bottom: 30px;
+      border: 3px inset #1c1c1c;
+    }
+
+    nav a {
+      display: block;
+      color: var(--green);
+      text-decoration: none;
+      margin: 16px 0;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    nav a::before {
+      content: "▣ ";
+      color: var(--red);
+    }
+
+    nav a:hover {
+      color: var(--red);
+      transform: translateX(8px);
+    }
+
+    main {
+      padding: 28px;
+      background:
+        linear-gradient(rgba(114,255,0,.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,0,0,.08) 1px, transparent 1px),
+        var(--panel);
+      background-size: 34px 34px;
+    }
+
+    .topline {
+      text-align: center;
+      color: var(--green);
+      letter-spacing: 5px;
+      border: 2px solid #3b5b24;
+      padding: 10px;
+      margin-bottom: 28px;
+      background: #020502;
+    }
+
+    h1 {
+      font-size: clamp(3rem, 8vw, 7rem);
+      line-height: .85;
+      margin: 20px 0 10px;
+      color: var(--green);
+      text-transform: uppercase;
+      text-shadow:
+        4px 4px #143800,
+        -3px 0 var(--violet),
+        0 0 18px rgba(114,255,0,.7);
+      font-family: Georgia, serif;
+      letter-spacing: -4px;
+    }
+
+    .subtitle {
+      max-width: 900px;
+      font-size: 1.15rem;
+      line-height: 1.6;
+      color: #9cff78;
+      margin-bottom: 28px;
+    }
+
+    .simulation-list {
+      display: grid;
+      gap: 14px;
+    }
+
+    .card {
+      display: grid;
+      grid-template-columns: 90px 190px 1fr 90px;
+      min-height: 120px;
+      border: 2px solid #34452a;
+      background: rgba(0,0,0,.58);
+      color: inherit;
+      text-decoration: none;
+      transition: .18s;
+      overflow: hidden;
+    }
+
+    .card:hover {
+      transform: skewX(-2deg) translateX(8px);
+      border-color: var(--red);
+      box-shadow: 0 0 30px rgba(255,0,0,.35);
+    }
+
+    .num {
+      display: grid;
+      place-items: center;
+      font-size: 3rem;
+      color: var(--lime);
+      border-right: 2px solid #263820;
+    }
+
+    .visual {
+      position: relative;
+      background:
+        radial-gradient(circle, rgba(0,234,255,.4), transparent 30%),
+        conic-gradient(from 120deg, transparent, rgba(176,0,255,.5), transparent);
+      border-right: 2px solid #263820;
+    }
+
+    .visual::before {
+      content: "";
+      position: absolute;
+      inset: 25px;
+      border: 2px solid currentColor;
+      border-radius: 50%;
+      transform: rotate(25deg);
+      color: var(--cyan);
+      box-shadow: 0 0 20px currentColor;
+    }
+
+    .content {
+      padding: 18px;
+    }
+
+    .content h2 {
+      margin: 0 0 8px;
+      color: var(--cyan);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    .content p {
+      margin: 0;
+      color: var(--text);
+    }
+
+    .enter {
+      display: grid;
+      place-items: center;
+      font-size: 3rem;
+      color: var(--red);
+      border-left: 2px solid #263820;
+    }
+
+    .right {
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .idol {
+      flex: 1;
+      min-height: 360px;
+      background:
+        radial-gradient(circle at 55% 35%, rgba(176,0,255,.8), transparent 8%),
+        radial-gradient(circle at 60% 38%, #777, #151515 35%, transparent 36%),
+        linear-gradient(160deg, #391a3d, #090909 60%);
+      border: 2px solid #3b5b24;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .idol::after {
+      content: "AI 2026";
+      position: absolute;
+      right: 16px;
+      top: 16px;
+      color: var(--red);
+      font-size: 2rem;
+      writing-mode: vertical-rl;
+    }
+
+    .formula {
+      padding: 18px;
+      min-height: 220px;
+      color: var(--green);
+      font-size: 1.3rem;
+      line-height: 1.7;
+    }
+
+    footer {
+      grid-column: 1 / -1;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 22px;
+      background: #050505;
+      border: 2px solid #3b5b24;
+      color: var(--green);
+      text-transform: uppercase;
+    }
+
+    @media (max-width: 1050px) {
+      .shell {
+        grid-template-columns: 1fr;
+      }
+
+      footer {
+        grid-column: auto;
+      }
+
+      .card {
+        grid-template-columns: 70px 1fr 70px;
+      }
+
+      .visual {
+        display: none;
+      }
+    }
+  </style>
 </head>
 
 <body>
+  <div class="shell">
 
-  <h1>Fisica con ai di Valerio Battaglia</h1>
+    <aside class="panel">
+      <div class="brand-small">SIMULAZIONI.FISICHE</div>
 
-  <p>
-    questo sito ha l'obiettivo di dimostrare le potenzialità dell'ai nel 2026, specificatamente nella scrittura di codice per simulazioni fisiche/matematiche complesse
-  </p>
+      <nav>
+        <a href="index.html">Home</a>
+        <a href="#simulazioni">Simulazioni</a>
+        <a href="#manifesto">Manifesto</a>
+        <a href="#codice">Codice</a>
+      </nav>
+    </aside>
 
-  <ul>
-    <li><a href="atomoIdrogeno.html">orbitali atomo di idrogeno in tre dimesioni</a></li>
-    <li><a href="doppiopendolo.html">doppio pendolo</a></li>
-    <li><a href="#">laboratorio gravità</a></li>
-    <li><a href="#">ray tracing</a></li>
-    <li><a href="#">trasformata di fourier</a></li>
-    <li><a href="#">onde in 3 dimensioni</a></li>
-     <li><a href="#"> gas perfetto a livello molecolare</a></li>
-  </ul>
+    <main class="panel">
+      <div class="topline">SIMULAZIONI FISICHE // AI 2026 // CODICE COME STRUMENTO</div>
 
-  <hr>
+      <h1>Fisica con AI</h1>
 
+      <p class="subtitle">
+        Questo sito ha l'obiettivo di dimostrare le potenzialità dell'AI nel 2026,
+        specificatamente nella scrittura di codice per simulazioni fisiche e matematiche complesse.
+      </p>
 
+      <section id="simulazioni" class="simulation-list"></section>
+    </main>
 
+    <aside class="right panel">
+      <div class="idol"></div>
+
+      <div class="formula panel">
+        ∂Ψ / ∂t = ĤΨ<br>
+        F = G m₁m₂ / r²<br>
+        ∇ · E = ρ / ε₀<br>
+        realtà non garantita
+      </div>
+    </aside>
+
+    <footer>
+      <span>© 2026 VB</span>
+      <span>modalità: esplorazione</span>
+      <span>realtà non standard</span>
+    </footer>
+
+  </div>
+
+  <script>
+    const pages = [
+      {
+        title: "Orbitali atomo di idrogeno",
+        description: "Visualizzazione interattiva degli orbitali quantistici in 3D.",
+        href: "atomoIdrogeno.html",
+        color: "var(--violet)"
+      },
+      {
+        title: "Doppio pendolo",
+        description: "Sistema caotico del doppio pendolo con analisi energetica.",
+        href: "doppiopendolo.html",
+        color: "var(--lime)"
+      },
+      {
+        title: "Laboratorio gravità",
+        description: "Simulazioni gravitazionali newtoniane e relativistiche.",
+        href: "gravita.html",
+        color: "var(--red)"
+      },
+      {
+        title: "Ray tracing",
+        description: "Rendering realistico con luci, ombre e riflessioni fisiche.",
+        href: "raytracing.html",
+        color: "var(--cyan)"
+      }
+    ];
+
+    const container = document.querySelector(".simulation-list");
+
+    pages.forEach((page, index) => {
+      const card = document.createElement("a");
+      card.className = "card";
+      card.href = page.href;
+      card.style.setProperty("--accent", page.color);
+
+      card.innerHTML = `
+        <div class="num">${String(index + 1).padStart(2, "0")}</div>
+        <div class="visual" style="color:${page.color}"></div>
+        <div class="content">
+          <h2 style="color:${page.color}">${page.title}</h2>
+          <p>${page.description}</p>
+        </div>
+        <div class="enter">▷</div>
+      `;
+
+      container.appendChild(card);
+    });
+  </script>
 </body>
 </html>
