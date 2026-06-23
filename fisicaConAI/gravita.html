@@ -1,0 +1,1015 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Simulatore gravitazionale 2D con bacini di attrazione</title>
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --panel: #111827;
+      --panel-2: #172033;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --accent: #60a5fa;
+      --border: #273247;
+      --danger: #fb7185;
+      --good: #34d399;
+      --warn: #fbbf24;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    #app {
+      display: grid;
+      grid-template-columns: 330px 1fr;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    aside {
+      background: linear-gradient(180deg, var(--panel), #0f172a);
+      border-right: 1px solid var(--border);
+      padding: 16px;
+      overflow: auto;
+      box-shadow: 8px 0 35px rgba(0,0,0,.25);
+      z-index: 2;
+    }
+
+    h1 {
+      font-size: 19px;
+      margin: 0 0 8px 0;
+      line-height: 1.2;
+    }
+
+    .subtitle {
+      margin: 0 0 18px 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .section {
+      padding: 13px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: rgba(23, 32, 51, .72);
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      font-weight: 700;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: #cbd5e1;
+      margin-bottom: 10px;
+    }
+
+    .mode-grid, .button-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    button {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #0f172a;
+      color: var(--text);
+      padding: 9px 10px;
+      cursor: pointer;
+      font-weight: 650;
+      transition: transform .08s ease, border-color .12s ease, background .12s ease;
+      user-select: none;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      border-color: #3b82f6;
+      background: #16213a;
+    }
+
+    button.active {
+      background: rgba(96, 165, 250, .2);
+      border-color: var(--accent);
+      color: #dbeafe;
+    }
+
+    button.danger:hover {
+      border-color: var(--danger);
+      background: rgba(251, 113, 133, .12);
+    }
+
+    button.good:hover {
+      border-color: var(--good);
+      background: rgba(52, 211, 153, .12);
+    }
+
+    button.warn:hover {
+      border-color: var(--warn);
+      background: rgba(251, 191, 36, .12);
+    }
+
+    label {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+      margin: 11px 0;
+      color: #d1d5db;
+      font-size: 13px;
+    }
+
+    input[type="range"] {
+      grid-column: 1 / -1;
+      width: 100%;
+      accent-color: var(--accent);
+    }
+
+    .value {
+      color: #bfdbfe;
+      font-variant-numeric: tabular-nums;
+      font-size: 12px;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+      margin-top: 8px;
+    }
+
+    #stats {
+      font-size: 12px;
+      color: #d1d5db;
+      line-height: 1.6;
+      font-variant-numeric: tabular-nums;
+    }
+
+    #canvasWrap {
+      position: relative;
+      min-width: 0;
+      min-height: 0;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      background:
+        radial-gradient(circle at 25% 25%, rgba(96,165,250,.08), transparent 28%),
+        radial-gradient(circle at 80% 65%, rgba(52,211,153,.06), transparent 22%),
+        #020617;
+      cursor: crosshair;
+    }
+
+    #toast {
+      position: absolute;
+      left: 16px;
+      bottom: 16px;
+      background: rgba(15, 23, 42, .86);
+      border: 1px solid var(--border);
+      color: #e5e7eb;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 13px;
+      pointer-events: none;
+      max-width: 520px;
+      box-shadow: 0 15px 45px rgba(0,0,0,.28);
+      opacity: .96;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 3px 8px;
+      font-size: 12px;
+      color: #d1d5db;
+      background: rgba(15,23,42,.55);
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      box-shadow: 0 0 10px currentColor;
+    }
+
+    @media (max-width: 800px) {
+      #app {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr;
+      }
+      aside {
+        max-height: 46vh;
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+      }
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <aside>
+    <h1>Campo gravitazionale 2D</h1>
+    <p class="subtitle">
+      Aggiungi centri fissi, particelle e visualizza i bacini di attrazione.
+      I centri non subiscono gravità: li muove solo l’utente.
+    </p>
+
+    <div class="section">
+      <div class="section-title">Modalità</div>
+      <div class="mode-grid">
+        <button id="modeCenters" class="active">Centri</button>
+        <button id="modeParticles">Particelle</button>
+        <button id="modePreview">Traiettoria</button>
+        <button id="modeFill">Riempimento</button>
+      </div>
+      <div class="hint" id="modeHint"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Parametri fisici</div>
+
+      <label>
+        Attrito universale
+        <span class="value" id="frictionValue"></span>
+        <input id="friction" type="range" min="0.05" max="2.5" step="0.01">
+      </label>
+
+      <label>
+        Intensità gravità
+        <span class="value" id="gravityValue"></span>
+        <input id="gravity" type="range" min="20" max="1400" step="10">
+      </label>
+
+      <label>
+        Massa nuovo centro
+        <span class="value" id="massValue"></span>
+        <input id="mass" type="range" min="200" max="4000" step="50">
+      </label>
+
+      <label>
+        Raggio cattura
+        <span class="value" id="captureValue"></span>
+        <input id="captureRadius" type="range" min="4" max="32" step="1">
+      </label>
+
+      <label>
+        Ammorbidimento
+        <span class="value" id="softeningValue"></span>
+        <input id="softening" type="range" min="8" max="80" step="1">
+      </label>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Riempimento del piano</div>
+
+      <label>
+        Densità particelle
+        <span class="value" id="densityValue"></span>
+        <input id="density" type="range" min="8" max="65" step="1">
+      </label>
+
+      <label>
+        Tempo massimo previsione
+        <span class="value" id="predictTimeValue"></span>
+        <input id="predictTime" type="range" min="2" max="26" step="0.5">
+      </label>
+
+      <div class="button-grid">
+        <button id="computeBasins" class="good">Calcola colori</button>
+        <button id="clearParticles" class="danger">Svuota particelle</button>
+      </div>
+      <div class="hint">
+        “Calcola colori” simula in anticipo il destino di ogni particella:
+        ogni particella prende il colore del centro in cui finirà.
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Simulazione</div>
+      <div class="button-grid">
+        <button id="toggleSim" class="good">Avvia</button>
+        <button id="resetDefaults" class="warn">Valori base</button>
+        <button id="clearCenters" class="danger">Elimina centri</button>
+        <button id="resetScene">Scena demo</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Stato</div>
+      <div id="stats"></div>
+      <div id="legend" class="legend"></div>
+    </div>
+  </aside>
+
+  <main id="canvasWrap">
+    <canvas id="world"></canvas>
+    <div id="toast"></div>
+  </main>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const canvas = document.getElementById("world");
+  const ctx = canvas.getContext("2d", { alpha: false });
+
+  const ui = {
+    modeCenters: document.getElementById("modeCenters"),
+    modeParticles: document.getElementById("modeParticles"),
+    modePreview: document.getElementById("modePreview"),
+    modeFill: document.getElementById("modeFill"),
+    modeHint: document.getElementById("modeHint"),
+    friction: document.getElementById("friction"),
+    gravity: document.getElementById("gravity"),
+    mass: document.getElementById("mass"),
+    captureRadius: document.getElementById("captureRadius"),
+    softening: document.getElementById("softening"),
+    density: document.getElementById("density"),
+    predictTime: document.getElementById("predictTime"),
+    frictionValue: document.getElementById("frictionValue"),
+    gravityValue: document.getElementById("gravityValue"),
+    massValue: document.getElementById("massValue"),
+    captureValue: document.getElementById("captureValue"),
+    softeningValue: document.getElementById("softeningValue"),
+    densityValue: document.getElementById("densityValue"),
+    predictTimeValue: document.getElementById("predictTimeValue"),
+    computeBasins: document.getElementById("computeBasins"),
+    clearParticles: document.getElementById("clearParticles"),
+    clearCenters: document.getElementById("clearCenters"),
+    toggleSim: document.getElementById("toggleSim"),
+    resetDefaults: document.getElementById("resetDefaults"),
+    resetScene: document.getElementById("resetScene"),
+    stats: document.getElementById("stats"),
+    legend: document.getElementById("legend"),
+    toast: document.getElementById("toast")
+  };
+
+  const DEFAULTS = {
+    friction: 0.72,
+    gravity: 420,
+    mass: 1250,
+    captureRadius: 13,
+    softening: 34,
+    density: 28,
+    predictTime: 12
+  };
+
+  const palette = [
+    "#60a5fa", "#34d399", "#f472b6", "#fbbf24", "#a78bfa", "#fb7185",
+    "#22d3ee", "#84cc16", "#f97316", "#e879f9", "#2dd4bf", "#c084fc"
+  ];
+
+  let W = 1, H = 1, DPR = 1;
+  let mode = "centers";
+  let centers = [];
+  let particles = [];
+  let running = false;
+  let dragCenter = null;
+  let dragOffset = { x: 0, y: 0 };
+  let mouse = { x: 0, y: 0, inside: false };
+  let preview = { path: [], color: "#ffffff", label: "" };
+  let computing = false;
+  let lastTime = performance.now();
+  let toastText = "";
+
+  const params = { ...DEFAULTS };
+
+  function setToast(text) {
+    toastText = text;
+    ui.toast.textContent = text;
+  }
+
+  function resize() {
+    const rect = canvas.getBoundingClientRect();
+    DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    W = Math.max(1, rect.width);
+    H = Math.max(1, rect.height);
+    canvas.width = Math.floor(W * DPR);
+    canvas.height = Math.floor(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+
+  function setMode(next) {
+    mode = next;
+    for (const [name, btn] of [
+      ["centers", ui.modeCenters],
+      ["particles", ui.modeParticles],
+      ["preview", ui.modePreview],
+      ["fill", ui.modeFill]
+    ]) {
+      btn.classList.toggle("active", name === mode);
+    }
+
+    const hints = {
+      centers: "Click su uno spazio vuoto: aggiunge un centro. Trascina un centro: lo sposta. Doppio click o Alt/Ctrl-click su un centro: lo elimina.",
+      particles: "Click sul piano: aggiunge una particella ferma, influenzata dai centri.",
+      preview: "Muovi il cursore: appare l’intero percorso futuro di una particella ipotetica, senza crearla.",
+      fill: "Usa “Calcola colori” per riempire il piano con una densità scelta e colorare ogni particella secondo il suo destino."
+    };
+    ui.modeHint.textContent = hints[mode];
+    setToast(hints[mode]);
+  }
+
+  function bindRange(input, key, output, suffix = "") {
+    input.value = params[key];
+    const update = () => {
+      params[key] = Number(input.value);
+      output.textContent = `${params[key]}${suffix}`;
+      if (key === "predictTime" && mode === "preview") computePreview();
+    };
+    input.addEventListener("input", update);
+    update();
+  }
+
+  function applyParamsToUi() {
+    for (const [key, input] of [
+      ["friction", ui.friction],
+      ["gravity", ui.gravity],
+      ["mass", ui.mass],
+      ["captureRadius", ui.captureRadius],
+      ["softening", ui.softening],
+      ["density", ui.density],
+      ["predictTime", ui.predictTime]
+    ]) input.value = params[key];
+
+    ui.frictionValue.textContent = params.friction.toFixed(2);
+    ui.gravityValue.textContent = params.gravity;
+    ui.massValue.textContent = params.mass;
+    ui.captureValue.textContent = params.captureRadius;
+    ui.softeningValue.textContent = params.softening;
+    ui.densityValue.textContent = params.density;
+    ui.predictTimeValue.textContent = `${params.predictTime}s`;
+  }
+
+  function makeCenter(x, y, mass = params.mass) {
+    const id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random());
+    const color = palette[centers.length % palette.length];
+    return { id, x, y, mass, color };
+  }
+
+  function makeParticle(x, y, color = "#dbeafe", attractorId = null) {
+    return {
+      x, y,
+      ox: x, oy: y,
+      vx: 0, vy: 0,
+      radius: 2.25,
+      color,
+      finalColor: color,
+      attractorId,
+      settled: false
+    };
+  }
+
+  function distance2(a, b) {
+    const dx = a.x - b.x, dy = a.y - b.y;
+    return dx * dx + dy * dy;
+  }
+
+  function centerAt(x, y) {
+    for (let i = centers.length - 1; i >= 0; i--) {
+      const c = centers[i];
+      const r = Math.max(12, params.captureRadius + 7);
+      if ((x - c.x) ** 2 + (y - c.y) ** 2 <= r * r) return c;
+    }
+    return null;
+  }
+
+  function accelerationAt(x, y) {
+    let ax = 0, ay = 0;
+    const soft2 = params.softening * params.softening;
+
+    for (const c of centers) {
+      const dx = c.x - x;
+      const dy = c.y - y;
+      const d2 = dx * dx + dy * dy + soft2;
+      const d = Math.sqrt(d2);
+      const a = params.gravity * c.mass / d2;
+      ax += a * dx / d;
+      ay += a * dy / d;
+    }
+    return { ax, ay };
+  }
+
+  function nearestCenter(x, y) {
+    if (!centers.length) return null;
+    let best = centers[0], bestD = Infinity;
+    for (const c of centers) {
+      const d = (x - c.x) ** 2 + (y - c.y) ** 2;
+      if (d < bestD) { best = c; bestD = d; }
+    }
+    return best;
+  }
+
+  function capturedCenter(x, y) {
+    for (const c of centers) {
+      const d = Math.hypot(x - c.x, y - c.y);
+      if (d <= params.captureRadius) return c;
+    }
+    return null;
+  }
+
+  function predictTrajectory(startX, startY, keepPath = true) {
+    if (!centers.length) {
+      return {
+        path: keepPath ? [{ x: startX, y: startY }] : [],
+        center: null,
+        endpoint: { x: startX, y: startY },
+        reason: "nessun centro"
+      };
+    }
+
+    let x = startX, y = startY, vx = 0, vy = 0;
+    const dt = 1 / 60;
+    const maxSteps = Math.floor(params.predictTime / dt);
+    const path = keepPath ? [{ x, y }] : [];
+    let finalCenter = null;
+    let reason = "tempo massimo";
+
+    for (let step = 0; step < maxSteps; step++) {
+      finalCenter = capturedCenter(x, y);
+      if (finalCenter) {
+        x = finalCenter.x;
+        y = finalCenter.y;
+        reason = "cattura";
+        if (keepPath) path.push({ x, y });
+        break;
+      }
+
+      const a = accelerationAt(x, y);
+      vx += a.ax * dt;
+      vy += a.ay * dt;
+
+      const damping = Math.exp(-params.friction * dt);
+      vx *= damping;
+      vy *= damping;
+
+      x += vx * dt;
+      y += vy * dt;
+
+      if (keepPath && (step % 2 === 0)) path.push({ x, y });
+
+      if (x < -W * 1.5 || x > W * 2.5 || y < -H * 1.5 || y > H * 2.5) {
+        reason = "fuori piano";
+        break;
+      }
+
+      const speed = Math.hypot(vx, vy);
+      const acc = Math.hypot(a.ax, a.ay);
+      if (speed < 0.018 && acc < 0.018 && step > 80) {
+        reason = "ferma";
+        break;
+      }
+    }
+
+    if (!finalCenter) finalCenter = nearestCenter(x, y);
+    return {
+      path,
+      center: finalCenter,
+      endpoint: finalCenter ? { x: finalCenter.x, y: finalCenter.y } : { x, y },
+      reason
+    };
+  }
+
+  function computePreview() {
+    if (mode !== "preview" || !mouse.inside) {
+      preview.path = [];
+      return;
+    }
+    const result = predictTrajectory(mouse.x, mouse.y, true);
+    preview.path = result.path;
+    preview.color = result.center ? result.center.color : "#e5e7eb";
+    preview.label = result.center ? `finirà nel centro ${centers.indexOf(result.center) + 1}` : result.reason;
+  }
+
+  function stepParticle(p, dt) {
+    if (p.settled || !centers.length) return;
+
+    const cap = capturedCenter(p.x, p.y);
+    if (cap) {
+      p.x = cap.x;
+      p.y = cap.y;
+      p.vx = 0;
+      p.vy = 0;
+      p.settled = true;
+      p.color = cap.color;
+      p.finalColor = cap.color;
+      p.attractorId = cap.id;
+      return;
+    }
+
+    const a = accelerationAt(p.x, p.y);
+    p.vx += a.ax * dt;
+    p.vy += a.ay * dt;
+
+    const damping = Math.exp(-params.friction * dt);
+    p.vx *= damping;
+    p.vy *= damping;
+
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+
+    if (p.x < -40 || p.x > W + 40 || p.y < -40 || p.y > H + 40) {
+      const c = nearestCenter(p.x, p.y);
+      if (c) {
+        p.color = c.color;
+        p.finalColor = c.color;
+        p.attractorId = c.id;
+      }
+    }
+
+    if (Math.hypot(p.vx, p.vy) < 0.02 && Math.hypot(a.ax, a.ay) < 0.02) {
+      p.settled = true;
+    }
+  }
+
+  function drawGrid() {
+    ctx.save();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(148,163,184,.075)";
+    const step = 40;
+    ctx.beginPath();
+    for (let x = 0; x <= W; x += step) {
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, H);
+    }
+    for (let y = 0; y <= H; y += step) {
+      ctx.moveTo(0, y);
+      ctx.lineTo(W, y);
+    }
+    ctx.stroke();
+
+    ctx.strokeStyle = "rgba(148,163,184,.12)";
+    ctx.beginPath();
+    ctx.moveTo(W / 2, 0);
+    ctx.lineTo(W / 2, H);
+    ctx.moveTo(0, H / 2);
+    ctx.lineTo(W, H / 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawCenters() {
+    for (let i = 0; i < centers.length; i++) {
+      const c = centers[i];
+
+      ctx.save();
+      ctx.translate(c.x, c.y);
+
+      const halo = Math.max(24, Math.sqrt(c.mass) * 1.1);
+      const grd = ctx.createRadialGradient(0, 0, 3, 0, 0, halo);
+      grd.addColorStop(0, c.color + "cc");
+      grd.addColorStop(1, c.color + "00");
+      ctx.fillStyle = grd;
+      ctx.beginPath();
+      ctx.arc(0, 0, halo, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = c.color;
+      ctx.strokeStyle = "#e5e7eb";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, 9, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = "#020617";
+      ctx.font = "bold 10px system-ui";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(String(i + 1), 0, 0.5);
+
+      ctx.restore();
+    }
+  }
+
+  function drawParticles() {
+    ctx.save();
+    for (const p of particles) {
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = p.settled ? 0.88 : 0.72;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawPreview() {
+    if (!preview.path.length) return;
+
+    ctx.save();
+    ctx.lineWidth = 2.2;
+    ctx.strokeStyle = preview.color;
+    ctx.globalAlpha = 0.92;
+    ctx.shadowColor = preview.color;
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+
+    const first = preview.path[0];
+    ctx.moveTo(first.x, first.y);
+    for (let i = 1; i < preview.path.length; i++) {
+      const p = preview.path[i];
+      ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke();
+
+    const last = preview.path[preview.path.length - 1];
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 18;
+    ctx.fillStyle = preview.color;
+    ctx.beginPath();
+    ctx.arc(last.x, last.y, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = "#e5e7eb";
+    ctx.font = "12px system-ui";
+    const label = preview.label ? `Traiettoria: ${preview.label}` : "Traiettoria";
+    ctx.fillText(label, Math.min(mouse.x + 12, W - 170), Math.max(20, mouse.y - 12));
+    ctx.restore();
+  }
+
+  function render() {
+    ctx.clearRect(0, 0, W, H);
+    drawGrid();
+    drawParticles();
+    drawPreview();
+    drawCenters();
+  }
+
+  function tick(now) {
+    const rawDt = Math.min(0.035, (now - lastTime) / 1000 || 1 / 60);
+    lastTime = now;
+
+    if (running && !computing) {
+      const dt = rawDt;
+      for (const p of particles) stepParticle(p, dt);
+    }
+
+    render();
+    updateStats();
+    requestAnimationFrame(tick);
+  }
+
+  function updateStats() {
+    const settled = particles.filter(p => p.settled).length;
+    ui.stats.innerHTML = `
+      Centri: <b>${centers.length}</b><br>
+      Particelle: <b>${particles.length}</b><br>
+      Ferme/catturate: <b>${settled}</b><br>
+      Stato: <b>${computing ? "calcolo colori…" : running ? "simulazione attiva" : "pausa"}</b>
+    `;
+
+    ui.legend.innerHTML = "";
+    centers.forEach((c, i) => {
+      const pill = document.createElement("span");
+      pill.className = "pill";
+      const dot = document.createElement("span");
+      dot.className = "dot";
+      dot.style.background = c.color;
+      dot.style.color = c.color;
+      const text = document.createElement("span");
+      text.textContent = `Centro ${i + 1}`;
+      pill.append(dot, text);
+      ui.legend.appendChild(pill);
+    });
+  }
+
+  function seedDemoScene() {
+    centers = [
+      makeCenter(W * 0.30, H * 0.46, 1250),
+      makeCenter(W * 0.68, H * 0.42, 1150),
+      makeCenter(W * 0.52, H * 0.70, 950)
+    ];
+    particles = [];
+    running = false;
+    ui.toggleSim.textContent = "Avvia";
+    setToast("Scena demo pronta: prova l’anteprima o calcola i colori del piano.");
+  }
+
+  function resetDefaults() {
+    Object.assign(params, DEFAULTS);
+    applyParamsToUi();
+    setToast("Parametri ripristinati ai valori base stabili.");
+    if (mode === "preview") computePreview();
+  }
+
+  async function computeBasins() {
+    if (!centers.length) {
+      setToast("Prima aggiungi almeno un centro gravitazionale.");
+      return;
+    }
+
+    computing = true;
+    running = false;
+    ui.toggleSim.textContent = "Avvia";
+    setToast("Calcolo dei colori in corso…");
+
+    particles = [];
+    const spacing = Number(params.density);
+    const margin = spacing * 0.5;
+    const totalCols = Math.max(1, Math.floor((W - margin * 2) / spacing));
+    const totalRows = Math.max(1, Math.floor((H - margin * 2) / spacing));
+    const total = totalCols * totalRows;
+    let done = 0;
+
+    for (let y = margin; y <= H - margin; y += spacing) {
+      for (let x = margin; x <= W - margin; x += spacing) {
+        const result = predictTrajectory(x, y, false);
+        const color = result.center ? result.center.color : "#94a3b8";
+        const p = makeParticle(x, y, color, result.center ? result.center.id : null);
+        p.finalColor = color;
+        particles.push(p);
+        done++;
+      }
+
+      if (done % (totalCols * 2) === 0) {
+        setToast(`Calcolo dei colori: ${Math.round(done / total * 100)}%`);
+        await new Promise(requestAnimationFrame);
+      }
+    }
+
+    computing = false;
+    setToast(`Calcolo completato: ${particles.length} particelle colorate. Ora puoi avviare la simulazione.`);
+  }
+
+  function pointerPos(evt) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: evt.clientX - rect.left,
+      y: evt.clientY - rect.top
+    };
+  }
+
+  function handlePointerDown(evt) {
+    const p = pointerPos(evt);
+    mouse.x = p.x;
+    mouse.y = p.y;
+    mouse.inside = true;
+
+    if (mode === "centers") {
+      const hit = centerAt(p.x, p.y);
+      if (hit && (evt.altKey || evt.ctrlKey || evt.metaKey)) {
+        centers = centers.filter(c => c.id !== hit.id);
+        particles.forEach(part => { if (part.attractorId === hit.id) part.attractorId = null; });
+        setToast("Centro eliminato.");
+        computePreview();
+        return;
+      }
+
+      if (hit) {
+        dragCenter = hit;
+        dragOffset.x = hit.x - p.x;
+        dragOffset.y = hit.y - p.y;
+        canvas.setPointerCapture(evt.pointerId);
+        return;
+      }
+
+      centers.push(makeCenter(p.x, p.y));
+      setToast("Centro aggiunto. Trascinalo per spostarlo.");
+      computePreview();
+      return;
+    }
+
+    if (mode === "particles") {
+      if (!centers.length) {
+        setToast("Aggiungi prima almeno un centro, poi inserisci le particelle.");
+        return;
+      }
+      const result = predictTrajectory(p.x, p.y, false);
+      particles.push(makeParticle(p.x, p.y, result.center ? result.center.color : "#dbeafe", result.center ? result.center.id : null));
+      setToast("Particella aggiunta.");
+      return;
+    }
+
+    if (mode === "fill") {
+      computeBasins();
+    }
+  }
+
+  function handlePointerMove(evt) {
+    const p = pointerPos(evt);
+    mouse.x = p.x;
+    mouse.y = p.y;
+    mouse.inside = true;
+
+    if (dragCenter) {
+      dragCenter.x = p.x + dragOffset.x;
+      dragCenter.y = p.y + dragOffset.y;
+      computePreview();
+      return;
+    }
+
+    if (mode === "preview") computePreview();
+  }
+
+  function handlePointerUp(evt) {
+    if (dragCenter) {
+      dragCenter = null;
+      try { canvas.releasePointerCapture(evt.pointerId); } catch (_) {}
+    }
+  }
+
+  function handleDoubleClick(evt) {
+    if (mode !== "centers") return;
+    const p = pointerPos(evt);
+    const hit = centerAt(p.x, p.y);
+    if (!hit) return;
+    centers = centers.filter(c => c.id !== hit.id);
+    particles.forEach(part => { if (part.attractorId === hit.id) part.attractorId = null; });
+    setToast("Centro eliminato.");
+  }
+
+  function init() {
+    resize();
+
+    bindRange(ui.friction, "friction", ui.frictionValue);
+    bindRange(ui.gravity, "gravity", ui.gravityValue);
+    bindRange(ui.mass, "mass", ui.massValue);
+    bindRange(ui.captureRadius, "captureRadius", ui.captureValue);
+    bindRange(ui.softening, "softening", ui.softeningValue);
+    bindRange(ui.density, "density", ui.densityValue, "px");
+    bindRange(ui.predictTime, "predictTime", ui.predictTimeValue, "s");
+
+    ui.modeCenters.addEventListener("click", () => setMode("centers"));
+    ui.modeParticles.addEventListener("click", () => setMode("particles"));
+    ui.modePreview.addEventListener("click", () => {
+      setMode("preview");
+      computePreview();
+    });
+    ui.modeFill.addEventListener("click", () => setMode("fill"));
+
+    ui.computeBasins.addEventListener("click", computeBasins);
+    ui.clearParticles.addEventListener("click", () => {
+      particles = [];
+      setToast("Particelle eliminate.");
+    });
+    ui.clearCenters.addEventListener("click", () => {
+      centers = [];
+      particles = [];
+      preview.path = [];
+      running = false;
+      ui.toggleSim.textContent = "Avvia";
+      setToast("Centri e particelle eliminati.");
+    });
+    ui.toggleSim.addEventListener("click", () => {
+      if (!particles.length) {
+        setToast("Non ci sono particelle da simulare.");
+        return;
+      }
+      running = !running;
+      ui.toggleSim.textContent = running ? "Pausa" : "Avvia";
+      setToast(running ? "Simulazione avviata." : "Simulazione in pausa.");
+    });
+    ui.resetDefaults.addEventListener("click", resetDefaults);
+    ui.resetScene.addEventListener("click", seedDemoScene);
+
+    canvas.addEventListener("pointerdown", handlePointerDown);
+    canvas.addEventListener("pointermove", handlePointerMove);
+    canvas.addEventListener("pointerup", handlePointerUp);
+    canvas.addEventListener("pointercancel", handlePointerUp);
+    canvas.addEventListener("dblclick", handleDoubleClick);
+    canvas.addEventListener("mouseleave", () => {
+      mouse.inside = false;
+      if (mode === "preview") preview.path = [];
+    });
+
+    window.addEventListener("resize", () => {
+      resize();
+      if (!centers.length) seedDemoScene();
+      computePreview();
+    });
+
+    setMode("centers");
+    seedDemoScene();
+    requestAnimationFrame(tick);
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
