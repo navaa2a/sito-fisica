@@ -1,0 +1,1404 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RayLab 3D - Editor e Ray Tracing Didattico</title>
+  <style>
+    :root{
+      --bg:#0c1020;
+      --panel:#121832;
+      --panel2:#182044;
+      --text:#eef3ff;
+      --muted:#aeb9d8;
+      --accent:#7bb7ff;
+      --accent2:#9df7d1;
+      --danger:#ff7b9c;
+      --line:rgba(255,255,255,.12);
+      --shadow: 0 18px 60px rgba(0,0,0,.35);
+      --radius:18px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background:
+        radial-gradient(circle at 20% 10%, rgba(123,183,255,.18), transparent 35%),
+        radial-gradient(circle at 70% 0%, rgba(157,247,209,.13), transparent 30%),
+        var(--bg);
+      color:var(--text);
+      min-height:100vh;
+    }
+    header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:18px;
+      padding:18px 22px;
+      border-bottom:1px solid var(--line);
+      background:rgba(12,16,32,.72);
+      backdrop-filter: blur(10px);
+      position:sticky;
+      top:0;
+      z-index:4;
+    }
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      min-width: 250px;
+    }
+    .logo{
+      width:38px;height:38px;border-radius:12px;
+      background: conic-gradient(from 130deg, var(--accent), var(--accent2), #d59dff, var(--accent));
+      box-shadow:0 0 30px rgba(123,183,255,.25);
+    }
+    h1{font-size:18px;margin:0;letter-spacing:.2px}
+    .subtitle{font-size:12px;color:var(--muted);margin-top:2px}
+    .tabs{
+      display:flex;
+      padding:4px;
+      background:rgba(255,255,255,.07);
+      border:1px solid var(--line);
+      border-radius:999px;
+      gap:4px;
+      flex-wrap:wrap;
+      justify-content:center;
+    }
+    .tab{
+      border:0;
+      background:transparent;
+      color:var(--muted);
+      padding:10px 14px;
+      border-radius:999px;
+      cursor:pointer;
+      font-weight:700;
+    }
+    .tab.active{
+      background:linear-gradient(135deg, rgba(123,183,255,.32), rgba(157,247,209,.22));
+      color:var(--text);
+    }
+    .main{
+      display:grid;
+      grid-template-columns: 320px 1fr 340px;
+      gap:16px;
+      padding:16px;
+      max-width:1600px;
+      margin:0 auto;
+    }
+    .panel{
+      background:linear-gradient(180deg, rgba(18,24,50,.94), rgba(18,24,50,.78));
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+    .panel h2{
+      margin:0;
+      font-size:14px;
+      letter-spacing:.3px;
+      padding:14px 16px;
+      border-bottom:1px solid var(--line);
+      background:rgba(255,255,255,.04);
+    }
+    .panelBody{padding:14px}
+    .stack{display:flex;flex-direction:column;gap:12px}
+    .row{display:flex;gap:10px;align-items:center}
+    .row > *{flex:1}
+    label{
+      display:block;
+      font-size:12px;
+      color:var(--muted);
+      margin-bottom:6px;
+      font-weight:700;
+    }
+    input, select, textarea, button{
+      font:inherit;
+    }
+    input[type="text"], input[type="number"], input[type="range"], select, textarea{
+      width:100%;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.06);
+      color:var(--text);
+      border-radius:12px;
+      padding:9px 10px;
+      outline:none;
+    }
+    select option{background:#121832;color:var(--text)}
+    input[type="color"]{
+      width:100%;
+      height:40px;
+      border:1px solid var(--line);
+      border-radius:12px;
+      background:rgba(255,255,255,.06);
+      padding:4px;
+    }
+    input[type="range"]{padding:0}
+    .btn{
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.07);
+      color:var(--text);
+      border-radius:14px;
+      padding:10px 12px;
+      cursor:pointer;
+      font-weight:800;
+      transition:.16s transform, .16s background;
+    }
+    .btn:hover{transform:translateY(-1px);background:rgba(255,255,255,.11)}
+    .btn.primary{
+      border-color:rgba(123,183,255,.55);
+      background:linear-gradient(135deg, rgba(123,183,255,.34), rgba(157,247,209,.18));
+    }
+    .btn.danger{border-color:rgba(255,123,156,.45); color:#ffd8e2}
+    .btn.small{padding:7px 9px;border-radius:11px;font-size:12px}
+    .viewportPanel{
+      min-height: calc(100vh - 122px);
+      display:flex;
+      flex-direction:column;
+    }
+    .canvasWrap{
+      position:relative;
+      flex:1;
+      min-height:540px;
+      background:
+        linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px),
+        radial-gradient(circle at 50% 38%, rgba(123,183,255,.15), transparent 45%),
+        #070a13;
+      background-size: 36px 36px, 36px 36px, auto, auto;
+    }
+    canvas{
+      display:block;
+      width:100%;
+      height:100%;
+    }
+    .canvasHint{
+      position:absolute;
+      left:14px;
+      bottom:14px;
+      color:rgba(238,243,255,.74);
+      background:rgba(0,0,0,.28);
+      border:1px solid rgba(255,255,255,.12);
+      padding:8px 10px;
+      border-radius:12px;
+      font-size:12px;
+      pointer-events:none;
+      backdrop-filter: blur(8px);
+    }
+    .toolbar{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      padding:12px;
+      border-top:1px solid var(--line);
+      background:rgba(255,255,255,.035);
+    }
+    .objectList{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      max-height:300px;
+      overflow:auto;
+      padding-right:4px;
+    }
+    .objectItem{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:9px 10px;
+      background:rgba(255,255,255,.045);
+      cursor:pointer;
+    }
+    .objectItem.active{
+      border-color:rgba(123,183,255,.75);
+      background:rgba(123,183,255,.16);
+    }
+    .objectName{
+      font-size:13px;
+      font-weight:800;
+      overflow:hidden;
+      white-space:nowrap;
+      text-overflow:ellipsis;
+    }
+    .badge{
+      font-size:11px;
+      color:var(--muted);
+      border:1px solid var(--line);
+      padding:3px 7px;
+      border-radius:999px;
+      background:rgba(255,255,255,.04);
+    }
+    .help{
+      font-size:13px;
+      color:var(--muted);
+      line-height:1.45;
+    }
+    details{
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:rgba(255,255,255,.04);
+      overflow:hidden;
+    }
+    summary{
+      cursor:pointer;
+      padding:10px 12px;
+      font-weight:800;
+      color:var(--text);
+    }
+    details .inside{padding:0 12px 12px}
+    .mode{display:none}
+    .mode.active{display:block}
+    .toolbar.mode.active, .renderBar.mode.active{display:flex}
+    .leftSlot{order:1}
+    .viewportPanel{order:2}
+    .rightSlot{order:3}
+    .renderBar{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:12px;
+      border-top:1px solid var(--line);
+      background:rgba(255,255,255,.035);
+    }
+    .progress{
+      flex:1;
+      height:10px;
+      border-radius:999px;
+      background:rgba(255,255,255,.08);
+      overflow:hidden;
+      border:1px solid var(--line);
+    }
+    .progress > div{
+      width:0%;
+      height:100%;
+      background:linear-gradient(90deg, var(--accent), var(--accent2));
+      transition:.15s width;
+    }
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.05);
+      padding:7px 9px;
+      border-radius:999px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:700;
+    }
+    .notice{
+      padding:10px 12px;
+      border-radius:14px;
+      border:1px solid rgba(157,247,209,.25);
+      background:rgba(157,247,209,.07);
+      color:#ddfff3;
+      font-size:13px;
+      line-height:1.45;
+    }
+    .divider{height:1px;background:var(--line);margin:4px 0}
+    @media (max-width: 1160px){
+      .main{grid-template-columns:1fr}
+      .viewportPanel{min-height:640px}
+      header{align-items:flex-start;flex-direction:column}
+      .brand{min-width:unset}
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="logo" aria-hidden="true"></div>
+      <div>
+        <h1>RayLab 3D</h1>
+        <div class="subtitle">Editor di scena + ray tracing didattico</div>
+      </div>
+    </div>
+    <div class="tabs" role="tablist">
+      <button class="tab active" id="tabEditor">1. Componi scena</button>
+      <button class="tab" id="tabRender">2. Ray tracing</button>
+      <button class="tab" id="tabHelp">Guida rapida</button>
+    </div>
+    <div class="pill" id="statusPill">Pronto</div>
+  </header>
+
+  <main class="main">
+    <section class="panel mode editorMode active leftSlot">
+      <h2>Aggiungi elementi</h2>
+      <div class="panelBody stack">
+        <div>
+          <label>Forma semplice</label>
+          <div class="row">
+            <button class="btn" data-add="sphere">Sfera</button>
+            <button class="btn" data-add="box">Cubo</button>
+            <button class="btn" data-add="plane">Piano</button>
+          </div>
+        </div>
+        <div>
+          <label>Modelli 3D preset</label>
+          <select id="complexPreset">
+            <option value="glassStudy">Studio vetro</option>
+            <option value="planet">Pianeta con lune</option>
+            <option value="crystal">Cristallo rifrattivo</option>
+            <option value="gallery">Galleria lucida</option>
+            <option value="cornell">Cornell box semplificato</option>
+          </select>
+          <button class="btn primary" id="loadPreset" style="margin-top:8px">Carica preset</button>
+        </div>
+        <div>
+          <label>Luci</label>
+          <div class="row">
+            <button class="btn" data-light="point">Puntuale</button>
+            <button class="btn" data-light="area">Area soft</button>
+          </div>
+        </div>
+        <div class="divider"></div>
+        <div>
+          <label>Oggetti nella scena</label>
+          <div class="objectList" id="objectList"></div>
+        </div>
+        <div class="row">
+          <button class="btn danger" id="deleteSelected">Elimina selezionato</button>
+          <button class="btn" id="duplicateSelected">Duplica</button>
+        </div>
+        <div class="notice">
+          Nell’editor le proprietà fisiche come rifrazione, trasparenza e riflessione sono solo anticipate visivamente. Il calcolo realistico avviene nella modalità ray tracing.
+        </div>
+      </div>
+    </section>
+
+    <section class="panel viewportPanel">
+      <h2 id="viewportTitle">Anteprima scena 3D</h2>
+      <div class="canvasWrap">
+        <canvas id="canvas"></canvas>
+        <div class="canvasHint" id="canvasHint">
+          Trascina per orbitare · Rotella per zoom · Clic su un oggetto per selezionarlo
+        </div>
+      </div>
+      <div class="toolbar editorMode mode active">
+        <button class="btn small" id="viewReset">Reset camera</button>
+        <button class="btn small" id="centerSelected">Centra selezionato</button>
+        <button class="btn small" id="toggleGrid">Griglia: ON</button>
+        <button class="btn small" id="exportScene">Esporta JSON</button>
+        <label class="btn small" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer">
+          Importa JSON
+          <input id="importScene" type="file" accept="application/json" hidden>
+        </label>
+      </div>
+      <div class="renderBar renderMode mode">
+        <button class="btn primary" id="startRender">Avvia render</button>
+        <button class="btn" id="stopRender">Stop</button>
+        <button class="btn" id="downloadRender">Download PNG</button>
+        <div class="progress"><div id="progressBar"></div></div>
+        <span class="pill" id="renderStats">0%</span>
+      </div>
+    </section>
+
+    <section class="panel mode editorMode active rightSlot">
+      <h2>Proprietà selezione</h2>
+      <div class="panelBody stack" id="propertiesPanel"></div>
+    </section>
+
+    <section class="panel mode renderMode leftSlot">
+      <h2>Parametri ray tracing</h2>
+      <div class="panelBody stack">
+        <div>
+          <label>Risoluzione</label>
+          <select id="renderResolution">
+            <option value="360x240">360 × 240 veloce</option>
+            <option value="540x360" selected>540 × 360 bilanciato</option>
+            <option value="720x480">720 × 480 alta</option>
+            <option value="960x640">960 × 640 molto alta</option>
+          </select>
+        </div>
+        <div class="row">
+          <div>
+            <label>Raggi per pixel: <span id="sppLabel">4</span></label>
+            <input id="samplesPerPixel" type="range" min="1" max="32" value="4">
+          </div>
+          <div>
+            <label>Rimbalzi max: <span id="bounceLabel">4</span></label>
+            <input id="maxBounces" type="range" min="1" max="8" value="4">
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label>Qualità ombre: <span id="shadowLabel">6</span></label>
+            <input id="shadowSamples" type="range" min="1" max="20" value="6">
+          </div>
+          <div>
+            <label>Esposizione: <span id="exposureLabel">1.0</span></label>
+            <input id="exposure" type="range" min="0.3" max="2.5" value="1" step="0.1">
+          </div>
+        </div>
+        <div>
+          <label>Modalità didattica</label>
+          <select id="debugMode">
+            <option value="beauty">Immagine finale</option>
+            <option value="normals">Normali superfici</option>
+            <option value="depth">Profondità</option>
+            <option value="material">Materiali</option>
+          </select>
+        </div>
+        <div class="notice">
+          Più raggi per pixel riducono il rumore; più rimbalzi aumentano riflessioni e rifrazioni multiple; più campioni ombra rendono morbide le luci ad area.
+        </div>
+      </div>
+    </section>
+
+    <section class="panel mode renderMode rightSlot">
+      <h2>Materiali nella scena</h2>
+      <div class="panelBody stack">
+        <div class="help">
+          La modalità ray tracing legge i materiali impostati nell’editor: opacità, rugosità, riflessione, indice di rifrazione e trasmissione.
+        </div>
+        <div id="materialSummary" class="stack"></div>
+      </div>
+    </section>
+
+    <section class="panel mode helpMode leftSlot">
+      <h2>Spiegazione delle parti</h2>
+      <div class="panelBody stack">
+        <details open>
+          <summary>Editor 3D</summary>
+          <div class="inside help">
+            Serve per comporre la scena. Puoi aggiungere sfere, cubi, piani, luci e preset più complessi. L’anteprima è veloce e volutamente semplificata: mostra posizione, colore e una stima del materiale, ma non calcola ancora il ray tracing.
+          </div>
+        </details>
+        <details open>
+          <summary>Pannello proprietà</summary>
+          <div class="inside help">
+            Permette di modificare posizione, scala, colore e proprietà ottiche. Opacità, riflessione, rugosità, trasmissione e indice di rifrazione vengono usati soprattutto nel render finale.
+          </div>
+        </details>
+        <details open>
+          <summary>Ray tracing</summary>
+          <div class="inside help">
+            Simula raggi di luce dalla camera verso la scena. Quando un raggio colpisce una superficie, può illuminarsi direttamente, riflettersi o rifrangersi. Aumentando campioni e rimbalzi il risultato diventa più pulito e fisicamente interessante.
+          </div>
+        </details>
+        <details open>
+          <summary>Download</summary>
+          <div class="inside help">
+            Dopo il render puoi salvare l’immagine in PNG con il pulsante “Download PNG”. L’immagine scaricata corrisponde all’ultimo render completato o parziale visibile sul canvas.
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <section class="panel mode helpMode rightSlot">
+      <h2>Mini glossario</h2>
+      <div class="panelBody stack help">
+        <p><b>Raggi per pixel</b>: numero di tentativi usati per stimare il colore di ogni pixel. Più alto significa meno rumore.</p>
+        <p><b>Rimbalzi</b>: quante volte un raggio può riflettersi o attraversare materiali trasparenti.</p>
+        <p><b>Rugosità</b>: rende le riflessioni più sfocate e meno speculari.</p>
+        <p><b>Trasmissione</b>: quantità di luce che attraversa il materiale, utile per vetro o cristallo.</p>
+        <p><b>Indice di rifrazione</b>: determina quanto il raggio devia entrando in un materiale. Vetro tipico: circa 1.5.</p>
+      </div>
+    </section>
+  </main>
+
+<script>
+(() => {
+  "use strict";
+
+  const TAU = Math.PI * 2;
+  const EPS = 1e-4;
+
+  function clamp(x,a=0,b=1){ return Math.max(a, Math.min(b,x)); }
+  function lerp(a,b,t){ return a+(b-a)*t; }
+  function rnd(a,b){ return a + Math.random()*(b-a); }
+  function hexToRgb(hex){
+    const n = parseInt(hex.replace("#",""),16);
+    return {r:((n>>16)&255)/255, g:((n>>8)&255)/255, b:(n&255)/255};
+  }
+  function rgbToHex(c){
+    const r = Math.round(clamp(c.r)*255).toString(16).padStart(2,"0");
+    const g = Math.round(clamp(c.g)*255).toString(16).padStart(2,"0");
+    const b = Math.round(clamp(c.b)*255).toString(16).padStart(2,"0");
+    return "#" + r + g + b;
+  }
+  function toneMap(c, exposure){
+    return {
+      r: 1 - Math.exp(-c.r * exposure),
+      g: 1 - Math.exp(-c.g * exposure),
+      b: 1 - Math.exp(-c.b * exposure)
+    };
+  }
+  function gamma(c){
+    return {
+      r: Math.pow(clamp(c.r), 1/2.2),
+      g: Math.pow(clamp(c.g), 1/2.2),
+      b: Math.pow(clamp(c.b), 1/2.2)
+    };
+  }
+  function addC(a,b){ return {r:a.r+b.r,g:a.g+b.g,b:a.b+b.b}; }
+  function mulC(a,s){ return {r:a.r*s,g:a.g*s,b:a.b*s}; }
+  function mixC(a,b,t){ return {r:lerp(a.r,b.r,t),g:lerp(a.g,b.g,t),b:lerp(a.b,b.b,t)}; }
+  function tint(a,b){ return {r:a.r*b.r,g:a.g*b.g,b:a.b*b.b}; }
+
+  class Vec3 {
+    constructor(x=0,y=0,z=0){ this.x=x; this.y=y; this.z=z; }
+    clone(){ return new Vec3(this.x,this.y,this.z); }
+    add(v){ return new Vec3(this.x+v.x,this.y+v.y,this.z+v.z); }
+    sub(v){ return new Vec3(this.x-v.x,this.y-v.y,this.z-v.z); }
+    mul(s){ return new Vec3(this.x*s,this.y*s,this.z*s); }
+    div(s){ return new Vec3(this.x/s,this.y/s,this.z/s); }
+    dot(v){ return this.x*v.x+this.y*v.y+this.z*v.z; }
+    cross(v){ return new Vec3(this.y*v.z-this.z*v.y, this.z*v.x-this.x*v.z, this.x*v.y-this.y*v.x); }
+    len(){ return Math.sqrt(this.dot(this)); }
+    norm(){ const l=this.len()||1; return this.div(l); }
+    had(v){ return new Vec3(this.x*v.x, this.y*v.y, this.z*v.z); }
+  }
+  const V = (x,y,z)=>new Vec3(x,y,z);
+
+  function reflect(I,N){ return I.sub(N.mul(2*I.dot(N))).norm(); }
+  function refract(I,N,ior){
+    let cosi = clamp(I.dot(N), -1, 1);
+    let etai = 1, etat = ior;
+    let n = N.clone();
+    if(cosi < 0){
+      cosi = -cosi;
+    } else {
+      [etai, etat] = [etat, etai];
+      n = N.mul(-1);
+    }
+    const eta = etai / etat;
+    const k = 1 - eta*eta*(1 - cosi*cosi);
+    if(k < 0) return null;
+    return I.mul(eta).add(n.mul(eta*cosi - Math.sqrt(k))).norm();
+  }
+  function fresnel(I,N,ior){
+    let cosi = clamp(I.dot(N), -1, 1);
+    let etai = 1, etat = ior;
+    if(cosi > 0) [etai,etat] = [etat,etai];
+    const sint = etai/etat * Math.sqrt(Math.max(0, 1-cosi*cosi));
+    if(sint >= 1) return 1;
+    const cost = Math.sqrt(Math.max(0, 1-sint*sint));
+    cosi = Math.abs(cosi);
+    const Rs = ((etat*cosi)-(etai*cost))/((etat*cosi)+(etai*cost));
+    const Rp = ((etai*cosi)-(etat*cost))/((etai*cosi)+(etat*cost));
+    return (Rs*Rs + Rp*Rp)/2;
+  }
+  function randomHemisphere(n, roughness){
+    const u = Math.random(), v = Math.random();
+    const r = Math.sqrt(u);
+    const theta = TAU*v;
+    let local = V(Math.cos(theta)*r, Math.sin(theta)*r, Math.sqrt(Math.max(0,1-u)));
+    const up = Math.abs(n.y) < .9 ? V(0,1,0) : V(1,0,0);
+    const tangent = up.cross(n).norm();
+    const bitangent = n.cross(tangent).norm();
+    return tangent.mul(local.x).add(bitangent.mul(local.y)).add(n.mul(local.z)).norm().mul(roughness).add(n.mul(1-roughness)).norm();
+  }
+
+  const canvas = document.getElementById("canvas");
+  const ctx = canvas.getContext("2d", { willReadFrequently:true });
+  const objectListEl = document.getElementById("objectList");
+  const propsEl = document.getElementById("propertiesPanel");
+  const statusPill = document.getElementById("statusPill");
+  const viewportTitle = document.getElementById("viewportTitle");
+  const canvasHint = document.getElementById("canvasHint");
+
+  let mode = "editor";
+  let showGrid = true;
+  let renderAbort = false;
+  let selectedId = null;
+  let nextId = 1;
+  let camera = { yaw: .75, pitch: -.28, dist: 8.5, target: V(0,.6,0), fov: 50 };
+
+  const scene = {
+    objects: [],
+    lights: [],
+    background: { top:{r:.35,g:.45,b:.70}, bottom:{r:.03,g:.04,b:.08} }
+  };
+
+  function makeMaterial(color="#88bbff"){
+    return {
+      color,
+      opacity: 1,
+      roughness: .35,
+      reflection: .2,
+      transmission: 0,
+      ior: 1.5,
+      emission: 0
+    };
+  }
+  function addObject(type, data={}){
+    const obj = {
+      id: nextId++,
+      kind:"object",
+      type,
+      name: data.name || type[0].toUpperCase()+type.slice(1)+" "+nextId,
+      pos: data.pos || V(0,1,0),
+      rot: data.rot || V(0,0,0),
+      scale: data.scale || V(1,1,1),
+      material: Object.assign(makeMaterial(data.color || "#88bbff"), data.material || {})
+    };
+    scene.objects.push(obj);
+    selectedId = obj.id;
+    syncUI();
+    drawPreview();
+    return obj;
+  }
+  function addLight(type="point", data={}){
+    const light = {
+      id: nextId++,
+      kind:"light",
+      type,
+      name: data.name || (type === "area" ? "Luce area " : "Luce ")+nextId,
+      pos: data.pos || V(0,4,3),
+      color: data.color || "#ffffff",
+      intensity: data.intensity ?? 4,
+      radius: data.radius ?? (type==="area" ? 1.3 : .08)
+    };
+    scene.lights.push(light);
+    selectedId = light.id;
+    syncUI();
+    drawPreview();
+    return light;
+  }
+  function findItem(id=selectedId){
+    return scene.objects.find(o=>o.id===id) || scene.lights.find(l=>l.id===id) || null;
+  }
+  function removeSelected(){
+    if(!selectedId) return;
+    scene.objects = scene.objects.filter(o=>o.id!==selectedId);
+    scene.lights = scene.lights.filter(l=>l.id!==selectedId);
+    selectedId = (scene.objects[0] || scene.lights[0] || {}).id || null;
+    syncUI(); drawPreview();
+  }
+  function duplicateSelected(){
+    const item = findItem();
+    if(!item) return;
+    const copy = JSON.parse(JSON.stringify(item));
+    reviveVec(copy);
+    copy.id = nextId++;
+    copy.name = copy.name + " copia";
+    copy.pos = copy.pos.add(V(.55,.15,.55));
+    if(copy.kind === "object") scene.objects.push(copy);
+    else scene.lights.push(copy);
+    selectedId = copy.id;
+    syncUI(); drawPreview();
+  }
+  function reviveVec(obj){
+    for(const k of ["pos","rot","scale"]){
+      if(obj[k] && !(obj[k] instanceof Vec3)) obj[k] = V(obj[k].x, obj[k].y, obj[k].z);
+    }
+  }
+
+  function clearScene(){
+    scene.objects = [];
+    scene.lights = [];
+    selectedId = null;
+  }
+  function loadPreset(name){
+    clearScene();
+    if(name === "glassStudy"){
+      addObject("plane", {name:"Pavimento satinato", pos:V(0,0,0), scale:V(7,1,7), color:"#777f91", material:{roughness:.65, reflection:.08}});
+      addObject("sphere", {name:"Sfera vetro", pos:V(-.8,1,0), scale:V(1,1,1), color:"#b9e7ff", material:{opacity:.35, transmission:.85, reflection:.08, roughness:.02, ior:1.52}});
+      addObject("sphere", {name:"Sfera specchio", pos:V(1.35,.75,-.2), scale:V(.75,.75,.75), color:"#f4f4ff", material:{reflection:.85, roughness:.05}});
+      addObject("box", {name:"Cubo opaco", pos:V(.2,.55,1.35), scale:V(.8,.8,.8), color:"#ff9d7b", material:{roughness:.55, reflection:.05}});
+      addLight("area", {name:"Softbox alta", pos:V(-2.5,4.6,2.3), intensity:7, radius:1.2, color:"#fff1d7"});
+      addLight("point", {name:"Rim light blu", pos:V(3,2.2,-2.4), intensity:2.1, color:"#7bb7ff"});
+    } else if(name === "planet"){
+      addObject("plane", {name:"Base scura", pos:V(0,-.05,0), scale:V(7,1,7), color:"#16192d", material:{roughness:.85}});
+      addObject("sphere", {name:"Pianeta", pos:V(0,1.35,0), scale:V(1.35,1.35,1.35), color:"#6cc7ff", material:{roughness:.35, reflection:.12}});
+      addObject("sphere", {name:"Luna vetrosa", pos:V(2.3,1.4,.25), scale:V(.35,.35,.35), color:"#d5dfff", material:{transmission:.35, opacity:.72, reflection:.15, ior:1.35}});
+      addObject("sphere", {name:"Satellite metallico", pos:V(-2,1.05,-.45), scale:V(.24,.24,.24), color:"#eeeeee", material:{reflection:.7, roughness:.12}});
+      addLight("point", {name:"Sole", pos:V(-3.8,4.2,2.7), intensity:9, radius:.2, color:"#fff4cf"});
+      addLight("area", {name:"Nebulosa verde", pos:V(3,2.5,-2.5), intensity:2.2, radius:1.8, color:"#9df7d1"});
+    } else if(name === "crystal"){
+      addObject("plane", {name:"Piano nero lucido", pos:V(0,0,0), scale:V(7,1,7), color:"#12131b", material:{roughness:.18, reflection:.35}});
+      addObject("box", {name:"Cristallo centrale", pos:V(0,1,0), rot:V(.25,.55,.12), scale:V(.85,1.45,.85), color:"#b6fff0", material:{opacity:.42, transmission:.82, reflection:.1, roughness:.015, ior:1.62}});
+      addObject("sphere", {name:"Gemma rossa", pos:V(-1.35,.55,.7), scale:V(.48,.48,.48), color:"#ff5c8a", material:{opacity:.55, transmission:.55, reflection:.18, ior:1.7}});
+      addObject("sphere", {name:"Gemma viola", pos:V(1.45,.45,-.35), scale:V(.42,.42,.42), color:"#b78cff", material:{opacity:.62, transmission:.42, reflection:.22, ior:1.58}});
+      addLight("area", {name:"Luce grande frontale", pos:V(0,4.8,3.2), intensity:8, radius:1.6, color:"#ffffff"});
+      addLight("point", {name:"Accento magenta", pos:V(-3,1.6,-1.2), intensity:3.2, color:"#ff7bdb"});
+    } else if(name === "gallery"){
+      addObject("plane", {name:"Pavimento galleria", pos:V(0,0,0), scale:V(8,1,8), color:"#8d8d8d", material:{roughness:.24, reflection:.22}});
+      addObject("box", {name:"Parete sinistra", pos:V(-3,1.5,0), scale:V(.18,3,6), color:"#ff8f8f", material:{roughness:.7}});
+      addObject("box", {name:"Parete destra", pos:V(3,1.5,0), scale:V(.18,3,6), color:"#8fb7ff", material:{roughness:.7}});
+      addObject("sphere", {name:"Opera specchiante", pos:V(-.9,.75,0), scale:V(.75,.75,.75), color:"#ffffff", material:{reflection:.85, roughness:.02}});
+      addObject("box", {name:"Scultura vetro", pos:V(.95,.72,.6), scale:V(.62,.9,.62), color:"#c7fff4", material:{transmission:.75, opacity:.45, ior:1.48, reflection:.12}});
+      addLight("area", {name:"Luce soffitto", pos:V(0,4.5,1.2), intensity:8, radius:2.1, color:"#fff7e8"});
+    } else {
+      addObject("plane", {name:"Pavimento Cornell", pos:V(0,0,0), scale:V(5,1,5), color:"#d8d2c6", material:{roughness:.72}});
+      addObject("box", {name:"Parete rossa", pos:V(-2.2,1.6,0), scale:V(.18,3.2,4.4), color:"#cc443e", material:{roughness:.75}});
+      addObject("box", {name:"Parete verde", pos:V(2.2,1.6,0), scale:V(.18,3.2,4.4), color:"#48ad75", material:{roughness:.75}});
+      addObject("box", {name:"Blocco bianco", pos:V(-.55,.6,.25), rot:V(0,.35,0), scale:V(.82,1.2,.82), color:"#eee7d7", material:{roughness:.62, reflection:.04}});
+      addObject("sphere", {name:"Sfera vetro Cornell", pos:V(.9,.55,-.35), scale:V(.55,.55,.55), color:"#d9fbff", material:{opacity:.38, transmission:.75, reflection:.1, ior:1.52, roughness:.02}});
+      addLight("area", {name:"Luce quadrata soffitto", pos:V(0,3.2,0), intensity:7.5, radius:1.0, color:"#fff7e5"});
+    }
+    selectedId = scene.objects[1]?.id || scene.objects[0]?.id || scene.lights[0]?.id || null;
+    syncUI(); drawPreview();
+  }
+
+  function fitCanvas(){
+    const rect = canvas.parentElement.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = Math.max(320, Math.floor(rect.width*dpr));
+    const h = Math.max(240, Math.floor(rect.height*dpr));
+    if(canvas.width !== w || canvas.height !== h){
+      canvas.width = w; canvas.height = h;
+      drawPreview();
+    }
+  }
+  window.addEventListener("resize", fitCanvas);
+
+  function cameraBasis(){
+    const cp = Math.cos(camera.pitch), sp = Math.sin(camera.pitch);
+    const cy = Math.cos(camera.yaw), sy = Math.sin(camera.yaw);
+    const dir = V(cp*sy, sp, cp*cy).norm();
+    const eye = camera.target.add(dir.mul(camera.dist));
+    const forward = camera.target.sub(eye).norm();
+    const right = forward.cross(V(0,1,0)).norm();
+    const up = right.cross(forward).norm();
+    return {eye, forward, right, up};
+  }
+  function project(p){
+    const {eye, forward, right, up} = cameraBasis();
+    const v = p.sub(eye);
+    const z = v.dot(forward);
+    if(z <= .05) return null;
+    const f = (canvas.height*.5) / Math.tan((camera.fov*Math.PI/180)*.5);
+    const x = canvas.width*.5 + v.dot(right)*f/z;
+    const y = canvas.height*.5 - v.dot(up)*f/z;
+    return {x,y,z};
+  }
+  function drawLine3(a,b,color="rgba(255,255,255,.18)", width=1){
+    const pa = project(a), pb = project(b);
+    if(!pa || !pb) return;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    ctx.moveTo(pa.x,pa.y);
+    ctx.lineTo(pb.x,pb.y);
+    ctx.stroke();
+  }
+  function drawGrid(){
+    if(!showGrid) return;
+    for(let i=-8;i<=8;i++){
+      const col = i===0 ? "rgba(157,247,209,.35)" : "rgba(255,255,255,.08)";
+      drawLine3(V(i,0,-8), V(i,0,8), col, i===0?1.5:1);
+      drawLine3(V(-8,0,i), V(8,0,i), col, i===0?1.5:1);
+    }
+  }
+  function screenRadius(center, radius){
+    const p1 = project(center);
+    const p2 = project(center.add(V(radius,0,0)));
+    if(!p1 || !p2) return 10;
+    return Math.max(4, Math.abs(p2.x-p1.x));
+  }
+  function drawBox(obj){
+    const s = obj.scale.mul(.5);
+    const pts = [
+      V(-s.x,-s.y,-s.z),V(s.x,-s.y,-s.z),V(s.x,s.y,-s.z),V(-s.x,s.y,-s.z),
+      V(-s.x,-s.y,s.z),V(s.x,-s.y,s.z),V(s.x,s.y,s.z),V(-s.x,s.y,s.z)
+    ].map(p=>rotateY(p, obj.rot.y).add(obj.pos));
+    const edges = [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
+    const c = obj.material.color;
+    for(const e of edges) drawLine3(pts[e[0]], pts[e[1]], c+"cc", obj.id===selectedId?3:1.4);
+    const pc = project(obj.pos);
+    if(pc){
+      ctx.fillStyle = c+"35";
+      ctx.beginPath();
+      for(const i of [0,1,2,3]){
+        const p = project(pts[i]);
+        if(p) i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y);
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+  function rotateY(p, a){
+    const c=Math.cos(a), s=Math.sin(a);
+    return V(p.x*c+p.z*s, p.y, -p.x*s+p.z*c);
+  }
+  function drawSphere(obj){
+    const p = project(obj.pos);
+    if(!p) return;
+    const rad = screenRadius(obj.pos, obj.scale.x);
+    const mat = obj.material;
+    const grad = ctx.createRadialGradient(p.x-rad*.35,p.y-rad*.4,rad*.1,p.x,p.y,rad);
+    grad.addColorStop(0, mat.transmission>.2 ? "#ffffff" : mat.color);
+    grad.addColorStop(.55, mat.color + Math.round(lerp(200,90,mat.roughness)).toString(16).padStart(2,"0"));
+    grad.addColorStop(1, "#00000066");
+    ctx.globalAlpha = lerp(.38,1,mat.opacity);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,rad,0,TAU);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = obj.id===selectedId ? "#ffffff" : mat.color;
+    ctx.lineWidth = obj.id===selectedId ? 3 : 1.5;
+    ctx.stroke();
+    if(mat.transmission > .2){
+      ctx.strokeStyle = "rgba(255,255,255,.55)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(p.x-rad*.18,p.y-rad*.18,rad*.38,0,TAU);
+      ctx.stroke();
+    }
+  }
+  function drawPlane(obj){
+    const sx = obj.scale.x, sz = obj.scale.z;
+    const pts = [V(-sx,0,-sz),V(sx,0,-sz),V(sx,0,sz),V(-sx,0,sz)].map(p=>p.add(obj.pos));
+    const ps = pts.map(project);
+    if(ps.every(Boolean)){
+      ctx.fillStyle = obj.material.color + "42";
+      ctx.beginPath();
+      ps.forEach((p,i)=> i ? ctx.lineTo(p.x,p.y) : ctx.moveTo(p.x,p.y));
+      ctx.closePath();
+      ctx.fill();
+    }
+    for(let i=0;i<4;i++) drawLine3(pts[i],pts[(i+1)%4], obj.id===selectedId ? "#ffffff" : obj.material.color+"dd", obj.id===selectedId?3:1.5);
+  }
+  function drawLight(l){
+    const p = project(l.pos);
+    if(!p) return;
+    const rad = l.type==="area" ? 14 + l.radius*7 : 10;
+    ctx.fillStyle = l.color;
+    ctx.shadowColor = l.color;
+    ctx.shadowBlur = 22;
+    if(l.type==="area"){
+      ctx.fillRect(p.x-rad, p.y-rad, rad*2, rad*2);
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = l.id===selectedId ? "#ffffff" : "rgba(255,255,255,.65)";
+      ctx.lineWidth = l.id===selectedId ? 3 : 1.5;
+      ctx.strokeRect(p.x-rad, p.y-rad, rad*2, rad*2);
+    } else {
+      ctx.beginPath(); ctx.arc(p.x,p.y,rad,0,TAU); ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = l.id===selectedId ? "#ffffff" : "rgba(255,255,255,.65)";
+      ctx.lineWidth = l.id===selectedId ? 3 : 1.5;
+      ctx.stroke();
+    }
+  }
+  function drawPreview(){
+    if(mode !== "editor") return;
+    fitCanvas();
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    const g = ctx.createLinearGradient(0,0,0,canvas.height);
+    g.addColorStop(0,"#0b1024");
+    g.addColorStop(1,"#060811");
+    ctx.fillStyle = g; ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    drawGrid();
+
+    const sorted = scene.objects.slice().sort((a,b)=>{
+      const pa = project(a.pos), pb = project(b.pos);
+      return (pb?.z||0)-(pa?.z||0);
+    });
+    for(const obj of sorted){
+      if(obj.type === "sphere") drawSphere(obj);
+      else if(obj.type === "box") drawBox(obj);
+      else if(obj.type === "plane") drawPlane(obj);
+    }
+    for(const l of scene.lights) drawLight(l);
+
+    ctx.shadowBlur = 0;
+  }
+
+  function itemDistanceToScreen(item, x, y){
+    const p = project(item.pos);
+    if(!p) return Infinity;
+    const dx = p.x - x, dy = p.y - y;
+    let radius = item.kind==="light" ? 22 : 26;
+    if(item.type==="sphere") radius = screenRadius(item.pos, item.scale.x) + 6;
+    return Math.sqrt(dx*dx+dy*dy) - radius;
+  }
+
+  let dragging=false, lastMouse=null, orbitMoved=false;
+  canvas.addEventListener("pointerdown", e=>{
+    if(mode !== "editor") return;
+    dragging=true; orbitMoved=false; lastMouse={x:e.clientX,y:e.clientY};
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener("pointermove", e=>{
+    if(mode !== "editor" || !dragging) return;
+    const dx = e.clientX-lastMouse.x, dy=e.clientY-lastMouse.y;
+    if(Math.abs(dx)+Math.abs(dy)>2) orbitMoved=true;
+    camera.yaw -= dx*.006;
+    camera.pitch = clamp(camera.pitch + dy*.005, -1.25, 1.1);
+    lastMouse={x:e.clientX,y:e.clientY};
+    drawPreview();
+  });
+  canvas.addEventListener("pointerup", e=>{
+    if(mode !== "editor") return;
+    dragging=false;
+    if(!orbitMoved){
+      const rect=canvas.getBoundingClientRect();
+      const dpr = canvas.width/rect.width;
+      const x=(e.clientX-rect.left)*dpr, y=(e.clientY-rect.top)*dpr;
+      const candidates = [...scene.objects, ...scene.lights]
+        .map(item=>({item, d:itemDistanceToScreen(item,x,y)}))
+        .sort((a,b)=>a.d-b.d);
+      if(candidates[0] && candidates[0].d < 12){
+        selectedId = candidates[0].item.id;
+        syncUI(); drawPreview();
+      }
+    }
+  });
+  canvas.addEventListener("wheel", e=>{
+    if(mode !== "editor") return;
+    e.preventDefault();
+    camera.dist = clamp(camera.dist * Math.exp(e.deltaY*.001), 2.2, 24);
+    drawPreview();
+  }, {passive:false});
+
+  function syncObjectList(){
+    objectListEl.innerHTML = "";
+    const all = [...scene.objects, ...scene.lights];
+    if(!all.length){
+      const empty = document.createElement("div");
+      empty.className = "help";
+      empty.textContent = "Nessun elemento. Aggiungi una forma, una luce o carica un preset.";
+      objectListEl.appendChild(empty);
+      return;
+    }
+    for(const item of all){
+      const el = document.createElement("div");
+      el.className = "objectItem" + (item.id===selectedId ? " active" : "");
+      el.innerHTML = `<div><div class="objectName">${escapeHtml(item.name)}</div><div class="badge">${item.kind === "light" ? "luce " + item.type : item.type}</div></div><span>${item.kind==="light"?"💡":"◼"}</span>`;
+      el.addEventListener("click",()=>{ selectedId=item.id; syncUI(); drawPreview(); });
+      objectListEl.appendChild(el);
+    }
+  }
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));
+  }
+  function input(label, value, onChange, opts={}){
+    const wrap = document.createElement("div");
+    const id = "i"+Math.random().toString(36).slice(2);
+    const step = opts.step ?? .1;
+    wrap.innerHTML = `<label for="${id}">${label}</label>`;
+    const el = document.createElement("input");
+    el.id = id;
+    el.type = opts.type || "number";
+    if(opts.type === "range"){
+      el.min = opts.min; el.max = opts.max; el.step = opts.step ?? .01;
+    } else if(opts.type === "color") {
+    } else {
+      el.step = step;
+    }
+    el.value = value;
+    el.addEventListener("input", ()=>onChange(el.value));
+    wrap.appendChild(el);
+    return wrap;
+  }
+  function syncProperties(){
+    propsEl.innerHTML = "";
+    const item = findItem();
+    if(!item){
+      propsEl.innerHTML = `<div class="help">Seleziona un oggetto o una luce per modificarne le proprietà.</div>`;
+      return;
+    }
+    propsEl.appendChild(input("Nome", item.name, v=>{item.name=v; syncObjectList();}, {type:"text"}));
+
+    const posRow1 = document.createElement("div");
+    posRow1.className = "row";
+    ["x","y","z"].forEach(axis=>{
+      posRow1.appendChild(input("Pos " + axis.toUpperCase(), item.pos[axis], v=>{ item.pos[axis]=parseFloat(v)||0; drawPreview(); }));
+    });
+    propsEl.appendChild(posRow1);
+
+    if(item.kind === "object"){
+      const scaleRow = document.createElement("div");
+      scaleRow.className = "row";
+      ["x","y","z"].forEach(axis=>{
+        scaleRow.appendChild(input("Scala " + axis.toUpperCase(), item.scale[axis], v=>{ item.scale[axis]=Math.max(.05,parseFloat(v)||.05); drawPreview(); }));
+      });
+      propsEl.appendChild(scaleRow);
+      const rotRow = document.createElement("div");
+      rotRow.className = "row";
+      rotRow.appendChild(input("Rotazione Y", item.rot.y, v=>{ item.rot.y=parseFloat(v)||0; drawPreview(); }));
+      propsEl.appendChild(rotRow);
+
+      propsEl.appendChild(input("Colore materiale", item.material.color, v=>{ item.material.color=v; syncObjectList(); drawPreview(); updateMaterialSummary(); }, {type:"color"}));
+
+      const sliders = [
+        ["Opacità", "opacity", 0, 1, .01],
+        ["Rugosità", "roughness", 0, 1, .01],
+        ["Riflessione", "reflection", 0, 1, .01],
+        ["Trasmissione / rifrazione", "transmission", 0, 1, .01],
+        ["Indice rifrazione", "ior", 1, 2.5, .01],
+        ["Emissione luce", "emission", 0, 5, .05]
+      ];
+      for(const [lab,key,min,max,step] of sliders){
+        const title = `${lab}: ${Number(item.material[key]).toFixed(key==="ior"?2:2)}`;
+        propsEl.appendChild(input(title, item.material[key], v=>{
+          item.material[key]=parseFloat(v)||0;
+          syncProperties(); drawPreview(); updateMaterialSummary();
+        }, {type:"range", min, max, step}));
+      }
+    } else {
+      propsEl.appendChild(input("Colore luce", item.color, v=>{ item.color=v; drawPreview(); }, {type:"color"}));
+      const row = document.createElement("div"); row.className="row";
+      row.appendChild(input("Intensità", item.intensity, v=>{ item.intensity=Math.max(0,parseFloat(v)||0); drawPreview(); }, {step:.1}));
+      row.appendChild(input("Raggio luce", item.radius, v=>{ item.radius=Math.max(.01,parseFloat(v)||.01); drawPreview(); }, {step:.1}));
+      propsEl.appendChild(row);
+      const typeWrap = document.createElement("div");
+      typeWrap.innerHTML = `<label>Tipo luce</label>`;
+      const sel = document.createElement("select");
+      sel.innerHTML = `<option value="point">Puntuale</option><option value="area">Area soft</option>`;
+      sel.value = item.type;
+      sel.addEventListener("change", ()=>{ item.type=sel.value; drawPreview(); syncObjectList(); });
+      typeWrap.appendChild(sel);
+      propsEl.appendChild(typeWrap);
+    }
+  }
+  function updateMaterialSummary(){
+    const el = document.getElementById("materialSummary");
+    if(!el) return;
+    el.innerHTML = "";
+    for(const o of scene.objects){
+      const div = document.createElement("div");
+      div.className = "objectItem";
+      div.innerHTML = `<div>
+        <div class="objectName">${escapeHtml(o.name)}</div>
+        <div class="help">Rifl. ${o.material.reflection.toFixed(2)} · Trasm. ${o.material.transmission.toFixed(2)} · IOR ${o.material.ior.toFixed(2)} · Rug. ${o.material.roughness.toFixed(2)}</div>
+      </div><span class="badge" style="background:${o.material.color}55">${o.type}</span>`;
+      el.appendChild(div);
+    }
+  }
+  function syncUI(){
+    syncObjectList();
+    syncProperties();
+    updateMaterialSummary();
+  }
+
+  document.querySelectorAll("[data-add]").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const type = btn.dataset.add;
+      if(type === "sphere") addObject("sphere",{pos:V(rnd(-1,1),1,rnd(-.5,.8)), scale:V(.7,.7,.7), color:"#7bb7ff"});
+      if(type === "box") addObject("box",{pos:V(rnd(-1,1),.6,rnd(-.5,.8)), scale:V(.9,.9,.9), color:"#ffbd7b"});
+      if(type === "plane") addObject("plane",{pos:V(0,0,0), scale:V(4,1,4), color:"#8b92a8", material:{roughness:.7}});
+    });
+  });
+  document.querySelectorAll("[data-light]").forEach(btn=>{
+    btn.addEventListener("click", ()=>addLight(btn.dataset.light, {pos:V(rnd(-2,2),rnd(2.5,4.5),rnd(1,3)), intensity: btn.dataset.light==="area"?5:3}));
+  });
+  document.getElementById("loadPreset").addEventListener("click", ()=>loadPreset(document.getElementById("complexPreset").value));
+  document.getElementById("deleteSelected").addEventListener("click", removeSelected);
+  document.getElementById("duplicateSelected").addEventListener("click", duplicateSelected);
+  document.getElementById("viewReset").addEventListener("click", ()=>{ camera={yaw:.75,pitch:-.28,dist:8.5,target:V(0,.6,0),fov:50}; drawPreview(); });
+  document.getElementById("centerSelected").addEventListener("click", ()=>{ const it=findItem(); if(it){camera.target=it.pos.clone(); drawPreview();}});
+  document.getElementById("toggleGrid").addEventListener("click", e=>{ showGrid=!showGrid; e.target.textContent="Griglia: "+(showGrid?"ON":"OFF"); drawPreview(); });
+  document.getElementById("exportScene").addEventListener("click", ()=>{
+    const data = JSON.stringify(scene, null, 2);
+    const blob = new Blob([data], {type:"application/json"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "raylab-scena.json";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+  document.getElementById("importScene").addEventListener("change", async e=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    try{
+      const data = JSON.parse(await file.text());
+      scene.objects = (data.objects || []).map(o=>{ reviveVec(o); return o; });
+      scene.lights = (data.lights || []).map(l=>{ reviveVec(l); return l; });
+      nextId = Math.max(1, ...scene.objects.map(o=>o.id||0), ...scene.lights.map(l=>l.id||0)) + 1;
+      selectedId = (scene.objects[0] || scene.lights[0] || {}).id || null;
+      syncUI(); drawPreview();
+    }catch(err){
+      alert("File JSON non valido.");
+    }
+  });
+
+  function switchMode(newMode){
+    mode = newMode;
+    document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+    document.querySelectorAll(".mode").forEach(el=>el.classList.remove("active"));
+    if(newMode === "editor"){
+      document.getElementById("tabEditor").classList.add("active");
+      document.querySelectorAll(".editorMode").forEach(el=>el.classList.add("active"));
+      viewportTitle.textContent = "Anteprima scena 3D";
+      canvasHint.textContent = "Trascina per orbitare · Rotella per zoom · Clic su un oggetto per selezionarlo";
+      statusPill.textContent = "Editor";
+      drawPreview();
+    } else if(newMode === "render"){
+      document.getElementById("tabRender").classList.add("active");
+      document.querySelectorAll(".renderMode").forEach(el=>el.classList.add("active"));
+      viewportTitle.textContent = "Render ray tracing";
+      canvasHint.textContent = "Imposta i parametri e premi “Avvia render”.";
+      statusPill.textContent = "Ray tracing";
+      prepareRenderCanvas(false);
+    } else {
+      document.getElementById("tabHelp").classList.add("active");
+      document.querySelectorAll(".helpMode").forEach(el=>el.classList.add("active"));
+      viewportTitle.textContent = "Anteprima scena 3D";
+      canvasHint.textContent = "Guida rapida: cosa fa ogni parte del sito.";
+      statusPill.textContent = "Guida";
+      drawPreview();
+    }
+  }
+  document.getElementById("tabEditor").addEventListener("click", ()=>switchMode("editor"));
+  document.getElementById("tabRender").addEventListener("click", ()=>switchMode("render"));
+  document.getElementById("tabHelp").addEventListener("click", ()=>switchMode("help"));
+
+  for(const [id,label,fmt] of [
+    ["samplesPerPixel","sppLabel",v=>v],
+    ["maxBounces","bounceLabel",v=>v],
+    ["shadowSamples","shadowLabel",v=>v],
+    ["exposure","exposureLabel",v=>Number(v).toFixed(1)]
+  ]){
+    const el=document.getElementById(id), lab=document.getElementById(label);
+    el.addEventListener("input",()=>lab.textContent=fmt(el.value));
+  }
+
+  function prepareRenderCanvas(clear=true){
+    const [w,h] = document.getElementById("renderResolution").value.split("x").map(Number);
+    const wrap = canvas.parentElement.getBoundingClientRect();
+    const maxW = Math.max(320, Math.floor(w));
+    const maxH = Math.max(200, Math.floor(h));
+    canvas.width = maxW; canvas.height = maxH;
+    canvas.style.objectFit = "contain";
+    if(clear){
+      ctx.fillStyle="#070a13"; ctx.fillRect(0,0,canvas.width,canvas.height);
+    } else {
+      ctx.fillStyle="#070a13"; ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle="rgba(255,255,255,.8)";
+      ctx.font="16px system-ui";
+      ctx.fillText("Pronto per il ray tracing", 18, 30);
+    }
+  }
+
+  function rayCamera(x,y,w,h){
+    const {eye, forward, right, up} = cameraBasis();
+    const aspect = w/h;
+    const fovScale = Math.tan((camera.fov*Math.PI/180)*.5);
+    const px = (2*((x+.5)/w)-1)*aspect*fovScale;
+    const py = (1-2*((y+.5)/h))*fovScale;
+    const dir = forward.add(right.mul(px)).add(up.mul(py)).norm();
+    return {origin:eye, dir};
+  }
+
+  function sphereHit(ray, obj){
+    const r = obj.scale.x;
+    const oc = ray.origin.sub(obj.pos);
+    const a = ray.dir.dot(ray.dir);
+    const b = 2*oc.dot(ray.dir);
+    const c = oc.dot(oc)-r*r;
+    const disc = b*b-4*a*c;
+    if(disc < 0) return null;
+    const sq = Math.sqrt(disc);
+    let t = (-b - sq)/(2*a);
+    if(t < EPS) t = (-b + sq)/(2*a);
+    if(t < EPS) return null;
+    const p = ray.origin.add(ray.dir.mul(t));
+    const n = p.sub(obj.pos).div(r).norm();
+    return {t,p,n,obj};
+  }
+  function planeHit(ray, obj){
+    const y = obj.pos.y;
+    if(Math.abs(ray.dir.y) < EPS) return null;
+    const t = (y - ray.origin.y)/ray.dir.y;
+    if(t < EPS) return null;
+    const p = ray.origin.add(ray.dir.mul(t));
+    if(Math.abs(p.x-obj.pos.x) > obj.scale.x || Math.abs(p.z-obj.pos.z) > obj.scale.z) return null;
+    return {t,p,n:V(0,1,0),obj};
+  }
+  function boxHit(ray, obj){
+    // Box con rotazione Y semplificata: trasformazione nel sistema locale.
+    const invOrigin = rotateY(ray.origin.sub(obj.pos), -obj.rot.y);
+    const invDir = rotateY(ray.dir, -obj.rot.y);
+    const half = obj.scale.mul(.5);
+    let tmin = -Infinity, tmax = Infinity;
+    let normal = V(0,0,0);
+    for(const axis of ["x","y","z"]){
+      const invD = 1 / (Math.abs(invDir[axis]) < EPS ? EPS : invDir[axis]);
+      let t1 = (-half[axis] - invOrigin[axis]) * invD;
+      let t2 = ( half[axis] - invOrigin[axis]) * invD;
+      let sign = -Math.sign(invD);
+      if(t1 > t2){ [t1,t2] = [t2,t1]; sign = -sign; }
+      if(t1 > tmin){
+        tmin = t1;
+        normal = V(0,0,0); normal[axis] = sign || 1;
+      }
+      tmax = Math.min(tmax, t2);
+      if(tmin > tmax) return null;
+    }
+    const t = tmin > EPS ? tmin : tmax;
+    if(t < EPS) return null;
+    const p = ray.origin.add(ray.dir.mul(t));
+    const n = rotateY(normal, obj.rot.y).norm();
+    return {t,p,n,obj};
+  }
+  function hitScene(ray){
+    let best = null;
+    for(const obj of scene.objects){
+      let h = null;
+      if(obj.type==="sphere") h=sphereHit(ray,obj);
+      else if(obj.type==="plane") h=planeHit(ray,obj);
+      else if(obj.type==="box") h=boxHit(ray,obj);
+      if(h && (!best || h.t < best.t)) best=h;
+    }
+    return best;
+  }
+  function background(dir){
+    const t = .5*(dir.y+1);
+    return mixC(scene.background.bottom, scene.background.top, t);
+  }
+  function lightSample(light){
+    const base = light.pos;
+    if(light.type !== "area" || light.radius <= .01) return base;
+    const u = rnd(-light.radius, light.radius), v = rnd(-light.radius, light.radius);
+    return base.add(V(u,0,v));
+  }
+  function visible(p, lp, currentObj){
+    const toL = lp.sub(p);
+    const dist = toL.len();
+    const ray = {origin:p.add(toL.norm().mul(EPS*8)), dir:toL.norm()};
+    const h = hitScene(ray);
+    return !h || h.t > dist - EPS*20 || h.obj === currentObj && h.t < EPS*10;
+  }
+  function directLight(hit, shadowSamples){
+    const mat = hit.obj.material;
+    const albedo = hexToRgb(mat.color);
+    let out = mulC(albedo, .025 + mat.emission);
+    for(const l of scene.lights){
+      let acc = {r:0,g:0,b:0};
+      const lc = hexToRgb(l.color);
+      const samples = l.type === "area" ? shadowSamples : 1;
+      for(let i=0;i<samples;i++){
+        const lp = lightSample(l);
+        const toL = lp.sub(hit.p);
+        const d2 = Math.max(.4, toL.dot(toL));
+        const L = toL.norm();
+        const ndl = Math.max(0, hit.n.dot(L));
+        if(ndl <= 0) continue;
+        if(!visible(hit.p, lp, hit.obj)) continue;
+        const intensity = l.intensity / d2;
+        const diff = ndl * intensity;
+        acc = addC(acc, mulC(tint(albedo, lc), diff));
+      }
+      out = addC(out, mulC(acc, 1/samples));
+    }
+    return out;
+  }
+  function trace(ray, depth, params){
+    if(depth <= 0) return {r:0,g:0,b:0};
+    const hit = hitScene(ray);
+    if(!hit) return background(ray.dir);
+
+    if(params.debugMode === "normals"){
+      return {r:hit.n.x*.5+.5, g:hit.n.y*.5+.5, b:hit.n.z*.5+.5};
+    }
+    if(params.debugMode === "depth"){
+      const v = Math.exp(-hit.t*.13);
+      return {r:v,g:v,b:v};
+    }
+    if(params.debugMode === "material"){
+      const m = hit.obj.material;
+      return {r:m.reflection, g:m.transmission, b:m.roughness};
+    }
+
+    const mat = hit.obj.material;
+    const base = directLight(hit, params.shadowSamples);
+    let color = base;
+    const albedo = hexToRgb(mat.color);
+
+    const refl = clamp(mat.reflection);
+    const trans = clamp(mat.transmission * (1 - mat.opacity + .25), 0, 1);
+    const rough = clamp(mat.roughness);
+
+    if(refl > .01){
+      const ideal = reflect(ray.dir, hit.n);
+      const rd = randomHemisphere(ideal, rough*.75);
+      const rr = {origin:hit.p.add(hit.n.mul(EPS*8)), dir:rd};
+      const rc = trace(rr, depth-1, params);
+      color = addC(mulC(color, 1-refl*.75), mulC(rc, refl*.75));
+    }
+
+    if(trans > .01){
+      const fr = fresnel(ray.dir, hit.n, mat.ior);
+      const refr = refract(ray.dir, hit.n, mat.ior);
+      if(refr){
+        const tr = {origin:hit.p.sub(hit.n.mul(EPS*8)), dir:refr};
+        const tc = tint(trace(tr, depth-1, params), mixC(albedo,{r:1,g:1,b:1},.55));
+        color = addC(mulC(color, 1-trans), mulC(tc, trans*(1-fr)));
+      } else {
+        const rr = {origin:hit.p.add(hit.n.mul(EPS*8)), dir:reflect(ray.dir, hit.n)};
+        color = addC(color, mulC(trace(rr, depth-1, params), trans));
+      }
+    }
+
+    return color;
+  }
+
+  async function render(){
+    renderAbort = false;
+    switchMode("render");
+    prepareRenderCanvas(true);
+    const w = canvas.width, h = canvas.height;
+    const spp = parseInt(document.getElementById("samplesPerPixel").value,10);
+    const maxBounces = parseInt(document.getElementById("maxBounces").value,10);
+    const shadowSamples = parseInt(document.getElementById("shadowSamples").value,10);
+    const exposure = parseFloat(document.getElementById("exposure").value);
+    const debugMode = document.getElementById("debugMode").value;
+    const params = {spp,maxBounces,shadowSamples,exposure,debugMode};
+    const img = ctx.createImageData(w,h);
+    const data = img.data;
+    const progressBar = document.getElementById("progressBar");
+    const stats = document.getElementById("renderStats");
+    statusPill.textContent = "Rendering...";
+    const start = performance.now();
+
+    for(let y=0; y<h; y++){
+      if(renderAbort) break;
+      for(let x=0; x<w; x++){
+        let col = {r:0,g:0,b:0};
+        for(let s=0; s<spp; s++){
+          const jitterX = spp === 1 ? 0 : rnd(-.45,.45);
+          const jitterY = spp === 1 ? 0 : rnd(-.45,.45);
+          const ray = rayCamera(x+jitterX, y+jitterY, w, h);
+          col = addC(col, trace(ray, maxBounces, params));
+        }
+        col = mulC(col, 1/spp);
+        col = gamma(toneMap(col, exposure));
+        const i = (y*w+x)*4;
+        data[i] = Math.round(clamp(col.r)*255);
+        data[i+1] = Math.round(clamp(col.g)*255);
+        data[i+2] = Math.round(clamp(col.b)*255);
+        data[i+3] = 255;
+      }
+      if(y % 4 === 0 || y === h-1){
+        ctx.putImageData(img,0,0);
+        const pct = Math.round((y+1)/h*100);
+        progressBar.style.width = pct+"%";
+        const sec = ((performance.now()-start)/1000).toFixed(1);
+        stats.textContent = pct + "% · " + sec + "s";
+        await new Promise(requestAnimationFrame);
+      }
+    }
+    ctx.putImageData(img,0,0);
+    if(renderAbort){
+      statusPill.textContent = "Render interrotto";
+    } else {
+      statusPill.textContent = "Render completato";
+      progressBar.style.width = "100%";
+    }
+  }
+
+  document.getElementById("startRender").addEventListener("click", render);
+  document.getElementById("stopRender").addEventListener("click", ()=>{ renderAbort = true; });
+  document.getElementById("downloadRender").addEventListener("click", ()=>{
+    const a = document.createElement("a");
+    a.href = canvas.toDataURL("image/png");
+    a.download = "raylab-render.png";
+    a.click();
+  });
+
+  // Avvio
+  loadPreset("glassStudy");
+  fitCanvas();
+  switchMode("editor");
+})();
+</script>
+</body>
+</html>
